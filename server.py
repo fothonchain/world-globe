@@ -3,13 +3,15 @@
 Usage: python3 server.py [port]           -> http://127.0.0.1:8770/  (this machine only)
        python3 server.py [port] --lan     -> also reachable from your local network (read-only app, no secrets)
        python3 server.py [port] --demo    -> serve test/demo_headlines.json instead of the live feeds (offline work, screenshots)
-  GET /api/world -> {fetchedAt, headlines: [{title, summary, url, source, at}], errors: {source: error}, sources: [names]}
-                    World RSS feeds (fixed list, no user-supplied URLs), fetched in parallel, each cached 10 minutes;
+  GET /api/world -> {fetchedAt, headlines: [{title, summary, url, source, at, video?}], errors: {source: error}, sources: [names]}
+                    World RSS feeds + news channels' YouTube feeds (video = YouTube id), a fixed list (no user-supplied URLs),
+                    fetched in parallel, each cached 10 minutes;
                     a feed that fails keeps serving its last good copy. Browsers cannot read these feeds directly (CORS).
 In localhost mode requests whose Host header is not 127.0.0.1 / localhost get 403 (blocks DNS rebinding)."""
 import concurrent.futures, html, http.server, json, os, re, socketserver, sys, threading, time, urllib.request
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
+from datetime import datetime
 from urllib.parse import urlparse
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -30,6 +32,15 @@ FEEDS = {  # name: (label, url)
     "cnbc": ("CNBC", "https://www.cnbc.com/id/100727362/device/rss/rss.html"),
     "techcrunch_ai": ("TechCrunch", "https://techcrunch.com/category/artificial-intelligence/feed/"),
 }
+YT = "https://www.youtube.com/feeds/videos.xml?channel_id="
+VIDEOS = {  # news channels' public YouTube feeds (no key): videos become headlines with a video id, the page embeds them
+    "yt_aljazeera": ("Al Jazeera", YT + "UCNye-wNBqNL5ZzHSJj3l8Bg"),
+    "yt_bbc": ("BBC", YT + "UC16niRr50-MSBwiO3YDb3RA"),
+    "yt_dw": ("DW News", YT + "UCknLrEdhRCp1aegoMqRaCZg"),
+    "yt_france24": ("France 24", YT + "UCQfwfsi5VrQ8yKZ-UWmAEFg"),
+    "yt_sky": ("Sky News", YT + "UCoMdktPbSTixAyNGwb-UYkQ"),
+}
+ALL = dict(FEEDS, **VIDEOS)
 MAX_AGE = 600
 _cache, _lock = {}, threading.Lock()
 
@@ -53,22 +64,40 @@ def parse_rss(raw, source, limit=40):
         out.append({"title": title[:200], "summary": _clean(it.findtext("description"))[:300], "url": link[:400], "source": source, "at": at})
     return out[:limit]
 
+A, YTNS, MEDIA = "{http://www.w3.org/2005/Atom}", "{http://www.youtube.com/xml/schemas/2015}", "{http://search.yahoo.com/mrss/}"
+VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
+def parse_youtube(raw, source, limit=15):
+    out = []
+    for e in ET.fromstring(raw).iter(A + "entry"):
+        vid, title = (e.findtext(YTNS + "videoId") or "").strip(), _clean(e.findtext(A + "title"))
+        title = re.sub(r"\s*[|｜]\s*[^|｜]*$", "", title) or title  # drop the channel's " | Al Jazeera Newsfeed" style suffix
+        if not VIDEO_ID.match(vid) or not title:
+            continue
+        try:
+            at = int(datetime.fromisoformat(e.findtext(A + "published")).timestamp() * 1000)
+        except Exception:
+            continue
+        group = e.find(MEDIA + "group")
+        desc = _clean(group.findtext(MEDIA + "description")) if group is not None else ""
+        out.append({"title": title[:200], "summary": desc[:300], "url": "https://www.youtube.com/watch?v=" + vid, "source": source, "at": at, "video": vid})
+    return out[:limit]
+
 def _fetch(name):
-    label, url = FEEDS[name]
-    return time.time(), parse_rss(_get(url), label)
+    label, url = ALL[name]
+    return time.time(), (parse_youtube if name in VIDEOS else parse_rss)(_get(url), label)
 
 def demo():
     with open(os.path.join(ROOT, "test", "demo_headlines.json")) as f:
         rows, now = json.load(f), time.time() * 1000
-    heads = [{"title": r["title"], "summary": r.get("summary", ""), "url": "https://example.com/demo/%d" % i, "source": r["source"], "at": int(now - r["hoursAgo"] * 3600e3)} for i, r in enumerate(rows)]
+    heads = [{"title": r["title"], "summary": r.get("summary", ""), "url": "https://example.com/demo/%d" % i, "source": r["source"], "at": int(now - r["hoursAgo"] * 3600e3), **({"video": r["video"]} if r.get("video") else {})} for i, r in enumerate(rows)]
     return {"fetchedAt": int(now), "errors": {}, "sources": sorted({r["source"] for r in rows}), "headlines": heads, "demo": True}
 
 def world():
     if DEMO:
         return demo()
-    now, out, heads = time.time(), {"fetchedAt": int(time.time() * 1000), "errors": {}, "sources": [v[0] for v in FEEDS.values()]}, []
+    now, out, heads = time.time(), {"fetchedAt": int(time.time() * 1000), "errors": {}, "sources": sorted({v[0] for v in ALL.values()})}, []
     with _lock:
-        stale = [n for n in FEEDS if not _cache.get(n) or now - _cache[n][0] > MAX_AGE]
+        stale = [n for n in ALL if not _cache.get(n) or now - _cache[n][0] > MAX_AGE]
     if stale:
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(stale)) as ex:
             for name, fut in [(n, ex.submit(_fetch, n)) for n in stale]:
@@ -77,9 +106,9 @@ def world():
                     with _lock:
                         _cache[name] = hit
                 except Exception as e:  # keep serving the last good copy
-                    out["errors"][FEEDS[name][0]] = type(e).__name__
+                    out["errors"][ALL[name][0] + (" video" if name in VIDEOS else "")] = type(e).__name__
     with _lock:
-        for name in FEEDS:
+        for name in ALL:
             if _cache.get(name):
                 heads += _cache[name][1]
     out["headlines"] = sorted(heads, key=lambda h: -h["at"])[:300]

@@ -39,7 +39,16 @@ button{font:inherit}
 .wlegend .la{width:14px;height:7px;border-top:1.5px dashed var(--warn);border-radius:50% 50% 0 0}.wlegend .lc{width:11px;height:8px;background:rgba(255,59,92,.25);border:1px solid rgba(255,59,92,.8)}
 .wspin{position:absolute;right:12px;bottom:10px}
 /* story card */
-.wcard{--c:#00e5ff;position:absolute;top:12px;left:12px;width:min(420px,calc(100% - 24px));max-height:calc(100% - 60px);overflow-y:auto;padding:12px 14px;border-radius:12px;
+/* left column over the globe: the story card, and under it the video player (war & conflict stories with a matching news video) */
+.wleft{position:absolute;top:12px;left:12px;width:min(440px,calc(100% - 24px));max-height:calc(100% - 56px);display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.wleft>*{pointer-events:auto}
+.wvid{flex:none;border-radius:12px;overflow:hidden;background:rgba(6,11,26,.95);border:1px solid rgba(255,59,92,.7);box-shadow:0 0 30px rgba(0,0,0,.6),0 0 18px rgba(255,59,92,.15);animation:cin .25s ease-out}
+.wvid[hidden]{display:none}
+.wvh{display:flex;justify-content:space-between;gap:8px;padding:6px 10px;font-size:10px;letter-spacing:1px;color:#ff3b5c;font-weight:700}
+.wvh a{color:var(--mut);font-weight:400;letter-spacing:0;text-decoration:none}.wvh a:hover{color:var(--fg)}
+.wframe{position:relative;aspect-ratio:16/9;background:#000}.wframe iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.wvbadge{font-size:9.5px;color:#ff3b5c;border:1px solid rgba(255,59,92,.5);border-radius:4px;padding:0 4px;letter-spacing:.5px}
+.wcard{--c:#00e5ff;flex:0 1 auto;min-height:0;overflow-y:auto;padding:12px 14px;border-radius:12px;
   background:rgba(6,11,26,.95);border:1px solid var(--c);border-left-width:3px;box-shadow:0 0 30px rgba(0,0,0,.6),0 0 18px rgba(0,229,255,.12);font-size:12px;animation:cin .25s ease-out}
 @keyframes cin{from{opacity:0;transform:translateY(-4px)}}
 .wch{display:flex;align-items:center;gap:8px;font-size:11px}.wch .x{margin-left:auto;background:none;border:0;color:var(--mut);font-size:18px;line-height:1;cursor:pointer}.wch .x:hover{color:var(--fg)}

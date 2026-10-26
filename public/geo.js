@@ -218,10 +218,13 @@ function stories(items, now, opt) {
     var ageH = Math.max(0, (now - s.at) / 3600e3);
     s.score = CAT_INFO[s.cat].w * (1 + 0.6 * Math.min(s.sources.length - 1, 5)) * Math.pow(0.5, ageH * 3600e3 / half);
     s.impact = impact(s);
+    var v = s.items.filter(function (x) { return VIDEO_ID.test(x.video || ''); })[0]; // newest first: the latest clip about this story
+    s.video = v ? {id: v.video, source: v.source, title: v.title, at: v.at} : null;
     delete s.tk;
   });
   return out.sort(function (a, b) { return b.score - a.score; });
 }
+var VIDEO_ID = /^[A-Za-z0-9_-]{11}$/; // a YouTube id; anything else is ignored, so the page never builds an embed URL from odd text
 function idOf(h) { var s = String(h.url || h.title), x = 0; for (var i = 0; i < s.length; i++) x = (x * 31 + s.charCodeAt(i)) | 0; return 'w' + (x >>> 0).toString(36); }
 
 /* ---------- market angle (rule of thumb, not a forecast) ---------- */

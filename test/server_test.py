@@ -13,3 +13,13 @@ assert len(r) == 1 and r[0]["title"] == "Iran & the Strait" and r[0]["summary"] 
 d = server.world()
 assert d["demo"] and len(d["headlines"]) > 20 and all(h["url"].startswith("https://") for h in d["headlines"])
 print("ok - server: rss parsing + demo feed")
+
+yt = b"""<feed xmlns="http://www.w3.org/2005/Atom" xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/">
+<entry><yt:videoId>abcDEF12345</yt:videoId><title>Russia strikes Kyiv overnight | Al Jazeera Newsfeed</title><published>2026-10-26T04:00:00+00:00</published>
+<media:group><media:description>Footage from the city.</media:description></media:group></entry>
+<entry><yt:videoId>bad id"&lt;x</yt:videoId><title>odd id is dropped</title><published>2026-10-26T04:00:00+00:00</published></entry>
+</feed>"""
+v = server.parse_youtube(yt, "Al Jazeera")
+assert len(v) == 1 and v[0]["video"] == "abcDEF12345" and v[0]["title"] == "Russia strikes Kyiv overnight" and v[0]["summary"] == "Footage from the city." and v[0]["at"] == 1792987200000, v
+assert v[0]["url"] == "https://www.youtube.com/watch?v=abcDEF12345"
+print("ok - server: youtube feed parsing")

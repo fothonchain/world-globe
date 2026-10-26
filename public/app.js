@@ -8,6 +8,8 @@
 var G = window.Geo, root = document.getElementById('app'); if (!G || !root) return;
 var COL = {war: '#ff3b5c', energy: '#ffb020', macro: '#3da5ff', ai: '#b26bff', markets: '#19ffb0', disaster: '#f5e663', politics: '#c9d4e6', other: '#7f93b5'};
 var WINS = [['24h', 24], ['3d', 72], ['7d', 168]], POLL = 5 * 60e3, MAXLIT = 120, MAXFEED = 60;
+var VIDEO_CATS = {war: 1}; // topics whose stories play a matching news-channel video under the card
+function vidOf(s) { return s && s.video && VIDEO_CATS[s.cat] ? s.video : null; }
 var cat = 'all', win = 0, sel = null, raw = null, all = [], shown = [], fetchedAt = 0, errors = {}, srcs = [], loading = false, failed = '', demo = false;
 var glb = null, countries = null, countryOf = null, booting = false, spin = true, hoverT = 0;
 try { var c0 = localStorage.getItem('wg_cat'); if (c0 && (c0 === 'all' || COL[c0])) cat = c0; var w0 = +localStorage.getItem('wg_win'); if (w0 >= 0 && w0 < WINS.length) win = w0; } catch (e) {}
@@ -24,7 +26,7 @@ root.innerHTML = '<header class="wbar"><div class="brand"><i class="logo"></i><b
   '<button class="wref" id="w-ref" title="Load the latest news again">↻ Refresh</button></header>' +
   '<nav class="wfilters"><div class="wcats" id="w-cats"></div><div class="wwin" id="w-win">' + WINS.map(function (w, k) { return '<button data-w="' + k + '">' + w[0] + '</button>'; }).join('') + '</div></nav>' +
   '<main class="wbody"><section class="wglobe" id="w-box" aria-label="Globe"><div id="w-globe"></div><div class="wload" id="w-load">loading globe…</div>' +
-  '<div class="wcard" id="w-card" hidden></div>' +
+  '<div class="wleft"><div class="wcard" id="w-card" hidden></div><div class="wvid" id="w-vid" hidden></div></div>' +
   '<div class="wlegend"><span><i class="lc"></i>lit country = in the news</span><span><i class="lp"></i>select a story to pin it</span><span><i class="la"></i>arc = a second place the story names</span></div>' +
   '<button class="wspin on" id="w-spin" title="Rotate the globe slowly">Auto-rotate</button></section>' +
   '<aside class="wfeed"><div class="wfh"><span>TOP STORIES</span><span class="muted" id="w-n"></span></div><div class="wlist" id="w-list"><div class="wempty">Loading the news…</div></div>' +
@@ -75,7 +77,7 @@ function placeHTML(s) {
 }
 function itemHTML(s, i) {
   return '<div class="witem' + (s.id === sel ? ' on' : '') + '" data-id="' + s.id + '" style="--c:' + COL[s.cat] + '">' +
-    '<div class="wi1"><span class="wrank">' + (i + 1) + '</span><span class="wcat">' + esc(G.CAT_INFO[s.cat].label) + '</span><span class="wage">' + ago(s.at) + '</span></div>' +
+    '<div class="wi1"><span class="wrank">' + (i + 1) + '</span><span class="wcat">' + esc(G.CAT_INFO[s.cat].label) + '</span>' + (vidOf(s) ? '<span class="wvbadge" title="A news video plays when you open this story">▶ video</span>' : '') + '<span class="wage">' + ago(s.at) + '</span></div>' +
     '<div class="wtitle">' + esc(s.title) + '</div>' +
     '<div class="wi2">' + placeHTML(s) + '<span class="wsrc" title="' + esc(s.sources.join(', ')) + '">' + s.sources.length + ' outlet' + (s.sources.length === 1 ? '' : 's') + '</span></div>' +
     (s.impact ? '<div class="wimp">▸ ' + esc(s.impact) + '</div>' : '') + '</div>';
@@ -90,11 +92,12 @@ function render() {
 function byId(id) { for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; return null; }
 function paintCard() {
   var s = sel && byId(sel), el = $('w-card');
+  paintVideo(vidOf(s));
   if (!s) { el.hidden = true; return; }
   el.hidden = false; el.style.setProperty('--c', COL[s.cat]);
   var links = s.items.slice(0, 8).map(function (x) {
     var u = /^https:\/\//.test(x.url || '') ? x.url : '';
-    return '<li><b>' + esc(x.source) + '</b> <span class="muted">' + ago(x.at) + ' ago</span> ' + (u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">' + esc(x.title) + '</a>' : esc(x.title)) + '</li>';
+    return '<li><b>' + (x.video ? '▶ ' : '') + esc(x.source) + '</b> <span class="muted">' + ago(x.at) + ' ago</span> ' + (u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">' + esc(x.title) + '</a>' : esc(x.title)) + '</li>';
   }).join('');
   var where = s.place ? esc(s.place.label) + ' · ' + (s.place.conf === 'spot' ? 'exact place' : 'country level, no exact place named') + (s.place.all.length > 1 ? '<br><span class="muted">also named: ' + esc(s.place.all.slice(1, 5).join(', ')) + '</span>' : '') : 'not on the map: no known place named';
   setHTML(el, '<div class="wch"><span class="wcat">' + esc(G.CAT_INFO[s.cat].label) + '</span><span class="muted">' + ago(s.at) + ' ago · ' + s.sources.length + ' outlet' + (s.sources.length === 1 ? '' : 's') + '</span><button class="x" id="w-x" aria-label="Close">×</button></div>' +
@@ -103,13 +106,19 @@ function paintCard() {
     (s.impact ? '<div class="wcw imp"><span>MARKET ANGLE</span>' + esc(s.impact) + ' <em class="muted">(rule of thumb)</em></div>' : '') +
     '<ul class="wcl">' + links + '</ul>');
 }
+// the player only depends on the video id, so the 60 s refresh of the card never restarts it; closing the card removes it (stops playback)
+function paintVideo(v) {
+  var el = $('w-vid'); el.hidden = !v;
+  setHTML(el, v ? '<div class="wvh"><span>▶ VIDEO · ' + esc(v.source) + ' · ' + ago(v.at) + ' ago</span><a href="https://www.youtube.com/watch?v=' + v.id + '" target="_blank" rel="noopener noreferrer">Open on YouTube</a></div>' +
+    '<div class="wframe"><iframe src="https://www.youtube-nocookie.com/embed/' + v.id + '?autoplay=1&amp;mute=1&amp;playsinline=1&amp;rel=0" title="' + esc(v.title) + '" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' : '');
+}
 function select(id, fly) {
   sel = id; var s = byId(id);
   Array.prototype.forEach.call($('w-list').querySelectorAll('.witem'), function (el) { el.classList.toggle('on', el.getAttribute('data-id') === id); });
   paintCard(); if (glb) { paintSel(); if (s && s.place && fly !== false) flyTo(s, 1.5); setSpin(false); }
   var it = $('w-list').querySelector('.witem[data-id="' + id + '"]'); if (it && fly === false) it.scrollIntoView({block: 'nearest', behavior: 'smooth'});
 }
-function close() { sel = null; $('w-card').hidden = true; Array.prototype.forEach.call($('w-list').querySelectorAll('.witem.on'), function (el) { el.classList.remove('on'); }); if (glb) paintSel(); }
+function close() { sel = null; $('w-card').hidden = true; paintVideo(null); Array.prototype.forEach.call($('w-list').querySelectorAll('.witem.on'), function (el) { el.classList.remove('on'); }); if (glb) paintSel(); }
 
 $('w-cats').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; cat = b.getAttribute('data-c'); try { localStorage.setItem('wg_cat', cat); } catch (x) {} render(); });
 $('w-win').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; win = +b.getAttribute('data-w'); try { localStorage.setItem('wg_win', win); } catch (x) {} render(); });

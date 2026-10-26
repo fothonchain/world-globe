@@ -154,5 +154,12 @@
   "title": "A recipe for the perfect autumn soup",
   "hoursAgo": 3,
   "summary": ""
+ },
+ {
+  "source": "Al Jazeera",
+  "title": "Russia pounds Kyiv with drones in overnight attack",
+  "hoursAgo": 3.2,
+  "summary": "Demo video row: the id is a placeholder, so the player shows 'unavailable'.",
+  "video": "demo0000000"
  }
 ]

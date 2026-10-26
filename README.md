@@ -26,6 +26,7 @@ One-time setup: **Settings → Pages → Source: GitHub Actions**. GitHub Pages 
 | Piece | File | What it does |
 |---|---|---|
 | Feeds | `server.py` | Fetches BBC World and Business, Al Jazeera, Guardian World, NPR World, France 24, CNBC World and TechCrunch AI RSS in parallel. Each feed is cached for 10 minutes, and a failed feed keeps its last good copy. `GET /api/world` returns the newest 300 headlines. |
+| Videos | `server.py` | The public YouTube feeds of Al Jazeera English, BBC News, DW News, France 24 English and Sky News (no key). Each video becomes a headline with a video id and joins the matching story by word overlap. |
 | Placing and ranking | `public/geo.js` | Pure logic that runs in the browser and in Node. See the rules below. |
 | Globe and feed | `public/app.js` | [globe.gl](https://github.com/vasturiano/globe.gl) (stored in the repo under `public/vendor/`), Natural Earth country outlines, the ranked feed, filters and story cards. |
 
@@ -41,6 +42,7 @@ One-time setup: **Settings → Pages → Source: GitHub Actions**. GitHub Pages 
 
 - Topic buttons and the 24h / 3d / 7d window filter both the feed and the globe. Both choices are remembered.
 - Hovering a story flies the globe to it. Clicking a story pins it on the globe (a pulsing marker, plus an arc if it names a second place) and opens its card: every outlet's link, the place and how sure the placement is, and the market angle. Press Esc to close the card.
+- War & conflict stories with a matching news video (▶ video in the list) play it, muted, in a panel under the story card. Unmute it in the player or open it on YouTube. Closing the card stops it. `VIDEO_CATS` in `public/app.js` sets which topics play video. A video is matched to a story by keywords too, so now and then it can be a related clip rather than the exact event.
 - The globe stays clean: only the selected story gets a pin. Countries in the news light up in their story's colour.
 - The page refreshes every 5 minutes while the tab is visible. The globe stops rendering while the tab is hidden.
 

@@ -55,4 +55,13 @@ t('stories: recency decays the score (12 h half-life)', () => {
   const mk = at => G.stories([{source: 'BBC', title: 'Israeli strikes kill dozens in Gaza', at, url: 'https://a'}], NOW)[0].score;
   assert(Math.abs(mk(NOW - 12 * H) / mk(NOW) - 0.5) < 1e-9);
 });
+t('stories: a news channel video joins the matching story; bad ids are ignored', () => {
+  const h = [
+    {source: 'The Guardian', title: 'Russia launches massive drone attack on Kyiv overnight', at: NOW - 3 * H, url: 'https://a/1'},
+    {source: 'Al Jazeera', title: 'Russia launches drone attack on Kyiv', at: NOW - 2 * H, url: 'https://www.youtube.com/watch?v=abcDEF12345', video: 'abcDEF12345'},
+    {source: 'BBC', title: 'Fed holds interest rates steady', at: NOW - 1 * H, url: 'https://a/2', video: 'x"><script>'}];
+  const s = G.stories(h, NOW, {countryOf: cof}), kyiv = s.find(x => x.place && x.place.label === 'Kyiv');
+  assert.equal(kyiv.items.length, 2); assert.equal(kyiv.video.id, 'abcDEF12345'); assert.equal(kyiv.video.source, 'Al Jazeera');
+  assert.equal(s.find(x => x.cat === 'macro').video, null);
+});
 console.log(n + ' tests passed');
