@@ -1,13 +1,13 @@
 /* World Globe (UI): a dark 3D globe (vendor/globe.gl) with the most important world news pinned where it happens, and a ranked feed
  * beside it. Data: server.py /api/world (RSS, polled every 5 min while the tab is visible); placing, grouping and ranking: geo.js
- * (keyword rules, not understanding). Hovering a story flies the globe there, clicking a story or a pin opens its card.
+ * (keyword rules, not understanding). Hovering a story flies the globe there; clicking one pins it (the only pin on the globe) and opens its card.
  * Performance: the DOM is only rebuilt when the news or a filter changes (setHTML / setText skip unchanged content), the globe's data only
- * when the set of pins changes, and the globe stops rendering while the tab is hidden. */
+ * when the lit countries or the selected story change, and the globe stops rendering while the tab is hidden. */
 (function () {
 'use strict';
 var G = window.Geo, root = document.getElementById('app'); if (!G || !root) return;
 var COL = {war: '#ff3b5c', energy: '#ffb020', macro: '#3da5ff', ai: '#b26bff', markets: '#19ffb0', disaster: '#f5e663', politics: '#c9d4e6', other: '#7f93b5'};
-var WINS = [['24h', 24], ['3d', 72], ['7d', 168]], POLL = 5 * 60e3, MAXPINS = 120, MAXFEED = 60;
+var WINS = [['24h', 24], ['3d', 72], ['7d', 168]], POLL = 5 * 60e3, MAXLIT = 120, MAXFEED = 60;
 var cat = 'all', win = 0, sel = null, raw = null, all = [], shown = [], fetchedAt = 0, errors = {}, srcs = [], loading = false, failed = '', demo = false;
 var glb = null, countries = null, countryOf = null, booting = false, spin = true, hoverT = 0;
 try { var c0 = localStorage.getItem('wg_cat'); if (c0 && (c0 === 'all' || COL[c0])) cat = c0; var w0 = +localStorage.getItem('wg_win'); if (w0 >= 0 && w0 < WINS.length) win = w0; } catch (e) {}
@@ -25,7 +25,7 @@ root.innerHTML = '<header class="wbar"><div class="brand"><i class="logo"></i><b
   '<nav class="wfilters"><div class="wcats" id="w-cats"></div><div class="wwin" id="w-win">' + WINS.map(function (w, k) { return '<button data-w="' + k + '">' + w[0] + '</button>'; }).join('') + '</div></nav>' +
   '<main class="wbody"><section class="wglobe" id="w-box" aria-label="Globe"><div id="w-globe"></div><div class="wload" id="w-load">loading globe…</div>' +
   '<div class="wcard" id="w-card" hidden></div>' +
-  '<div class="wlegend"><span><i class="lp"></i>pin height = importance</span><span><i class="lr"></i>pulse = top 5</span><span><i class="la"></i>arc = second place named</span><span><i class="lc"></i>lit country = in the news</span></div>' +
+  '<div class="wlegend"><span><i class="lc"></i>lit country = in the news</span><span><i class="lp"></i>select a story to pin it</span><span><i class="la"></i>arc = a second place the story names</span></div>' +
   '<button class="wspin on" id="w-spin" title="Rotate the globe slowly">Auto-rotate</button></section>' +
   '<aside class="wfeed"><div class="wfh"><span>TOP STORIES</span><span class="muted" id="w-n"></span></div><div class="wlist" id="w-list"><div class="wempty">Loading the news…</div></div>' +
   '<div class="wfoot muted">Places, groups and ranks headlines by keyword rules, not by reading them: a pin can be wrong. Ranking = topic weight × number of outlets × recency. Market angles are rules of thumb, not advice.</div></aside></main>';
@@ -140,12 +140,12 @@ function boot() {
         .width(box.clientWidth).height(box.clientHeight)
         .polygonsData(countries).polygonAltitude(0.006).polygonSideColor(function () { return 'rgba(0,229,255,0.04)'; }).polygonStrokeColor(function () { return 'rgba(0,229,255,0.28)'; })
         .polygonsTransitionDuration(400).polygonLabel(function (f) { return '<div class="wtip"><b>' + esc(f.properties.name) + '</b></div>'; })
-        .pointLat(function (s) { return s.place.lat; }).pointLng(function (s) { return s.place.lon; }).pointRadius(function (s) { return s.id === sel ? 0.55 : 0.32; })
+        .pointLat(function (s) { return s.place.lat; }).pointLng(function (s) { return s.place.lon; }).pointRadius(0.5).pointColor(function (s) { return COL[s.cat]; })
         .pointAltitude(function (s) { return 0.02 + Math.min(0.3, s.score * 0.12); }).pointsMerge(false).pointsTransitionDuration(500)
-        .pointLabel(function (s) { return '<div class="wtip" style="--c:' + COL[s.cat] + '"><span>' + esc(G.CAT_INFO[s.cat].label) + ' · ' + esc(s.place.label) + '</span><b>' + esc(s.title) + '</b><em>' + ago(s.at) + ' ago · ' + s.sources.length + ' outlet' + (s.sources.length === 1 ? '' : 's') + ' · click for details</em></div>'; })
+        .pointLabel(function (s) { return '<div class="wtip" style="--c:' + COL[s.cat] + '"><span>' + esc(G.CAT_INFO[s.cat].label) + ' · ' + esc(s.place.label) + '</span><b>' + esc(s.title) + '</b><em>' + ago(s.at) + ' ago · ' + s.sources.length + ' outlet' + (s.sources.length === 1 ? '' : 's') + '</em></div>'; })
         .onPointClick(function (s) { select(s.id, false); })
-        .ringLat(function (s) { return s.place.lat; }).ringLng(function (s) { return s.place.lon; }).ringMaxRadius(function (s) { return s.id === sel ? 5 : 3.2; }).ringPropagationSpeed(1.6).ringRepeatPeriod(1400)
-        .ringColor(function (s) { var c = s.id === sel ? '#ffffff' : COL[s.cat]; return function (t) { return rgba(c, 1 - t); }; })
+        .ringLat(function (s) { return s.place.lat; }).ringLng(function (s) { return s.place.lon; }).ringMaxRadius(4.5).ringPropagationSpeed(1.6).ringRepeatPeriod(1400)
+        .ringColor(function (s) { var c = COL[s.cat]; return function (t) { return rgba(c, 1 - t); }; })
         .arcStartLat(function (s) { return s.place.to.lat; }).arcStartLng(function (s) { return s.place.to.lon; }).arcEndLat(function (s) { return s.place.lat; }).arcEndLng(function (s) { return s.place.lon; })
         .arcColor(function (s) { return [rgba(COL[s.cat], 0.15), rgba(COL[s.cat], 0.9)]; }).arcStroke(0.45).arcDashLength(0.45).arcDashGap(0.25).arcDashAnimateTime(2600).arcAltitudeAutoScale(0.35)
         .labelLat(function (s) { return s.place.lat; }).labelLng(function (s) { return s.place.lon; }).labelText(function (s) { return s.place.label; }).labelSize(0.55).labelDotRadius(0)
@@ -162,15 +162,12 @@ function boot() {
   sc.onerror = function () { setText($('w-load'), 'could not load the globe (vendor/globe.gl.min.js)'); };
   document.head.appendChild(sc);
 }
-var sigPins = '';
-function paintGlobe() {
+var sigLit = '', sigSel = null;
+function paintGlobe() { // the globe stays clean: countries in the news are lit, and only the selected story gets a pin
   if (!glb) return;
-  var placed = shown.filter(function (s) { return s.place; }).slice(0, MAXPINS), sig = placed.map(function (s) { return s.id; }).join(',');
-  if (sig !== sigPins) { // data changes only when the news or the filters change, never per frame
-    sigPins = sig;
-    glb.pointsData(placed);
-    glb.arcsData(placed.filter(function (s) { return s.place.to && G.dist(s.place, s.place.to) > 700; }).slice(0, 25));
-    var seen = {}; glb.labelsData(placed.filter(function (s) { if (seen[s.place.label]) return false; seen[s.place.label] = 1; return true; }).slice(0, 8));
+  var placed = shown.filter(function (s) { return s.place; }).slice(0, MAXLIT), sig = placed.map(function (s) { return s.id; }).join(',');
+  if (sig !== sigLit) { // data changes only when the news or the filters change, never per frame
+    sigLit = sig;
     var lit = {}; placed.forEach(function (s) { s.place.maps.forEach(function (m) { if (!lit[m]) lit[m] = s; }); });
     glb.polygonCapColor(function (f) { var s = lit[f.properties.name]; return s ? rgba(COL[s.cat], 0.2) : 'rgba(12,28,58,0.78)'; })
       .polygonStrokeColor(function (f) { var s = lit[f.properties.name]; return s ? rgba(COL[s.cat], 0.75) : 'rgba(0,229,255,0.22)'; });
@@ -179,9 +176,9 @@ function paintGlobe() {
 }
 function paintSel() {
   if (!glb) return;
-  var placed = shown.filter(function (s) { return s.place; }), rings = placed.slice(0, 5), s = sel && byId(sel);
-  if (s && s.place && rings.indexOf(s) < 0) rings = rings.concat([s]);
-  glb.ringsData(rings).pointColor(function (p) { return p.id === sel ? '#ffffff' : COL[p.cat]; });
+  var s = sel && byId(sel), one = s && s.place ? [s] : [], id = one.length ? s.id : '';
+  if (id === sigSel) return; sigSel = id;
+  glb.pointsData(one).ringsData(one).labelsData(one).arcsData(one.filter(function (x) { return x.place.to && G.dist(x.place, x.place.to) > 700; }));
 }
 
 /* ---------- tab visible / hidden ---------- */

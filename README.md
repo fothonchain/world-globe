@@ -40,8 +40,8 @@ One-time setup: **Settings → Pages → Source: GitHub Actions**. GitHub Pages 
 ## Using it
 
 - Topic buttons and the 24h / 3d / 7d window filter both the feed and the globe. Both choices are remembered.
-- Hovering a story flies the globe to it. Clicking a story or a pin opens its card: every outlet's link, the place and how sure the placement is, and the market angle. Press Esc to close the card.
-- Pin height shows importance. The top 5 stories pulse. Countries in the news light up in their story's colour.
+- Hovering a story flies the globe to it. Clicking a story pins it on the globe (a pulsing marker, plus an arc if it names a second place) and opens its card: every outlet's link, the place and how sure the placement is, and the market angle. Press Esc to close the card.
+- The globe stays clean: only the selected story gets a pin. Countries in the news light up in their story's colour.
 - The page refreshes every 5 minutes while the tab is visible. The globe stops rendering while the tab is hidden.
 
 ## Tests
