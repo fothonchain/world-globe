@@ -8,8 +8,7 @@
 var G = window.Geo, root = document.getElementById('app'); if (!G || !root) return;
 var COL = {war: '#ff3b5c', energy: '#ffb020', macro: '#3da5ff', ai: '#b26bff', markets: '#19ffb0', disaster: '#f5e663', politics: '#c9d4e6', other: '#7f93b5'};
 var WINS = [['24h', 24], ['3d', 72], ['7d', 168]], POLL = 5 * 60e3, MAXLIT = 120, MAXFEED = 60;
-var VIDEO_CATS = {war: 1}; // topics whose stories play a matching news-channel video under the card
-function vidOf(s) { return s && s.video && VIDEO_CATS[s.cat] ? s.video : null; }
+function vidOf(s) { return s && s.video || null; } // any story with a matching news-channel video plays it under the card
 var cat = 'all', win = 0, sel = null, raw = null, all = [], shown = [], fetchedAt = 0, errors = {}, srcs = [], loading = false, failed = '', demo = false;
 var glb = null, countries = null, countryOf = null, booting = false, spin = true, hoverT = 0;
 try { var c0 = localStorage.getItem('wg_cat'); if (c0 && (c0 === 'all' || COL[c0])) cat = c0; var w0 = +localStorage.getItem('wg_win'); if (w0 >= 0 && w0 < WINS.length) win = w0; } catch (e) {}
@@ -92,7 +91,7 @@ function render() {
 function byId(id) { for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; return null; }
 function paintCard() {
   var s = sel && byId(sel), el = $('w-card');
-  paintVideo(vidOf(s));
+  paintVideo(vidOf(s)); if (s && s.video) { $('w-vid').style.setProperty('--c', COL[s.cat]); setText($('w-vago'), ago(s.video.at) + ' ago'); }
   if (!s) { el.hidden = true; return; }
   el.hidden = false; el.style.setProperty('--c', COL[s.cat]);
   var links = s.items.slice(0, 8).map(function (x) {
@@ -109,7 +108,7 @@ function paintCard() {
 // the player only depends on the video id, so the 60 s refresh of the card never restarts it; closing the card removes it (stops playback)
 function paintVideo(v) {
   var el = $('w-vid'); el.hidden = !v;
-  setHTML(el, v ? '<div class="wvh"><span>▶ VIDEO · ' + esc(v.source) + ' · ' + ago(v.at) + ' ago</span><a href="https://www.youtube.com/watch?v=' + v.id + '" target="_blank" rel="noopener noreferrer">Open on YouTube</a></div>' +
+  setHTML(el, v ? '<div class="wvh"><span>▶ VIDEO · ' + esc(v.source) + ' · <i id="w-vago"></i></span><a href="https://www.youtube.com/watch?v=' + v.id + '" target="_blank" rel="noopener noreferrer">Open on YouTube</a></div>' +
     '<div class="wframe"><iframe src="https://www.youtube-nocookie.com/embed/' + v.id + '?autoplay=1&amp;mute=1&amp;playsinline=1&amp;rel=0" title="' + esc(v.title) + '" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' : '');
 }
 function select(id, fly) {
@@ -149,16 +148,16 @@ function boot() {
         .width(box.clientWidth).height(box.clientHeight)
         .polygonsData(countries).polygonAltitude(0.006).polygonSideColor(function () { return 'rgba(0,229,255,0.04)'; }).polygonStrokeColor(function () { return 'rgba(0,229,255,0.28)'; })
         .polygonsTransitionDuration(400).polygonLabel(function (f) { return '<div class="wtip"><b>' + esc(f.properties.name) + '</b></div>'; })
-        .pointLat(function (s) { return s.place.lat; }).pointLng(function (s) { return s.place.lon; }).pointRadius(0.5).pointColor(function (s) { return COL[s.cat]; })
-        .pointAltitude(function (s) { return 0.02 + Math.min(0.3, s.score * 0.12); }).pointsMerge(false).pointsTransitionDuration(500)
+        .pointLat(function (s) { return s.place.lat; }).pointLng(function (s) { return s.place.lon; }).pointRadius(0.11).pointResolution(16).pointColor(function (s) { return COL[s.cat]; })
+        .pointAltitude(0.09).pointsMerge(false).pointsTransitionDuration(400) // a thin needle; the ring and label mark the spot
         .pointLabel(function (s) { return '<div class="wtip" style="--c:' + COL[s.cat] + '"><span>' + esc(G.CAT_INFO[s.cat].label) + ' · ' + esc(s.place.label) + '</span><b>' + esc(s.title) + '</b><em>' + ago(s.at) + ' ago · ' + s.sources.length + ' outlet' + (s.sources.length === 1 ? '' : 's') + '</em></div>'; })
         .onPointClick(function (s) { select(s.id, false); })
-        .ringLat(function (s) { return s.place.lat; }).ringLng(function (s) { return s.place.lon; }).ringMaxRadius(4.5).ringPropagationSpeed(1.6).ringRepeatPeriod(1400)
-        .ringColor(function (s) { var c = COL[s.cat]; return function (t) { return rgba(c, 1 - t); }; })
+        .ringLat(function (s) { return s.place.lat; }).ringLng(function (s) { return s.place.lon; }).ringAltitude(0.008).ringMaxRadius(2.2).ringPropagationSpeed(0.9).ringRepeatPeriod(1800).ringResolution(96)
+        .ringColor(function (s) { var c = COL[s.cat]; return function (t) { return rgba(c, 0.85 * (1 - t) * (1 - t)); }; })
         .arcStartLat(function (s) { return s.place.to.lat; }).arcStartLng(function (s) { return s.place.to.lon; }).arcEndLat(function (s) { return s.place.lat; }).arcEndLng(function (s) { return s.place.lon; })
-        .arcColor(function (s) { return [rgba(COL[s.cat], 0.15), rgba(COL[s.cat], 0.9)]; }).arcStroke(0.45).arcDashLength(0.45).arcDashGap(0.25).arcDashAnimateTime(2600).arcAltitudeAutoScale(0.35)
-        .labelLat(function (s) { return s.place.lat; }).labelLng(function (s) { return s.place.lon; }).labelText(function (s) { return s.place.label; }).labelSize(0.55).labelDotRadius(0)
-        .labelColor(function () { return 'rgba(232,246,255,0.85)'; }).labelAltitude(0.012).labelResolution(2)
+        .arcColor(function (s) { return [rgba(COL[s.cat], 0.15), rgba(COL[s.cat], 0.9)]; }).arcStroke(0.14).arcDashLength(0.45).arcDashGap(0.25).arcDashAnimateTime(2600).arcAltitudeAutoScale(0.35)
+        .labelLat(function (s) { return s.place.lat; }).labelLng(function (s) { return s.place.lon; }).labelText(function (s) { return s.place.label; }).labelSize(0.42).labelDotRadius(0.12).labelDotOrientation(function () { return 'right'; })
+        .labelColor(function () { return 'rgba(232,246,255,0.9)'; }).labelAltitude(0.012).labelResolution(3)
         .onGlobeClick(function () { if (sel) close(); });
       var m = glb.globeMaterial(); m.color.set('#050d1f'); if (m.emissive) m.emissive.set('#02060f'); if ('shininess' in m) m.shininess = 4;
       var ctl = glb.controls(); ctl.autoRotate = spin; ctl.autoRotateSpeed = 0.35; ctl.enableDamping = true; ctl.minDistance = 130; ctl.maxDistance = 700;
@@ -187,7 +186,7 @@ function paintSel() {
   if (!glb) return;
   var s = sel && byId(sel), one = s && s.place ? [s] : [], id = one.length ? s.id : '';
   if (id === sigSel) return; sigSel = id;
-  glb.pointsData(one).ringsData(one).labelsData(one).arcsData(one.filter(function (x) { return x.place.to && G.dist(x.place, x.place.to) > 700; }));
+  glb.pointsData(one).ringsData(one).labelsData(one).arcsData(one.filter(function (x) { return x.place.to && G.dist(x.place, x.place.to) > 1200; }));
 }
 
 /* ---------- tab visible / hidden ---------- */

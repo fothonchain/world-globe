@@ -42,12 +42,12 @@ button{font:inherit}
 /* left column over the globe: the story card, and under it the video player (war & conflict stories with a matching news video) */
 .wleft{position:absolute;top:12px;left:12px;width:min(440px,calc(100% - 24px));max-height:calc(100% - 56px);display:flex;flex-direction:column;gap:8px;pointer-events:none}
 .wleft>*{pointer-events:auto}
-.wvid{flex:none;border-radius:12px;overflow:hidden;background:rgba(6,11,26,.95);border:1px solid rgba(255,59,92,.7);box-shadow:0 0 30px rgba(0,0,0,.6),0 0 18px rgba(255,59,92,.15);animation:cin .25s ease-out}
+.wvid{flex:none;border-radius:12px;overflow:hidden;background:rgba(6,11,26,.95);border:1px solid var(--c,#00e5ff);box-shadow:0 0 30px rgba(0,0,0,.6);animation:cin .25s ease-out}
 .wvid[hidden]{display:none}
-.wvh{display:flex;justify-content:space-between;gap:8px;padding:6px 10px;font-size:10px;letter-spacing:1px;color:#ff3b5c;font-weight:700}
+.wvh{display:flex;justify-content:space-between;gap:8px;padding:6px 10px;font-size:10px;letter-spacing:1px;color:var(--c,#00e5ff);font-weight:700}
 .wvh a{color:var(--mut);font-weight:400;letter-spacing:0;text-decoration:none}.wvh a:hover{color:var(--fg)}
 .wframe{position:relative;aspect-ratio:16/9;background:#000}.wframe iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-.wvbadge{font-size:9.5px;color:#ff3b5c;border:1px solid rgba(255,59,92,.5);border-radius:4px;padding:0 4px;letter-spacing:.5px}
+.wvbadge{font-size:9.5px;color:var(--c);border:1px solid var(--c);opacity:.85;border-radius:4px;padding:0 4px;letter-spacing:.5px}
 .wcard{--c:#00e5ff;flex:0 1 auto;min-height:0;overflow-y:auto;padding:12px 14px;border-radius:12px;
   background:rgba(6,11,26,.95);border:1px solid var(--c);border-left-width:3px;box-shadow:0 0 30px rgba(0,0,0,.6),0 0 18px rgba(0,229,255,.12);font-size:12px;animation:cin .25s ease-out}
 @keyframes cin{from{opacity:0;transform:translateY(-4px)}}
@@ -79,3 +79,4 @@ button{font:inherit}
 /* small screens: globe on top, feed below, page scrolls */
 @media (max-width:1000px){body{overflow:auto}#app{height:auto;min-height:100%}.wbody{grid-template-columns:1fr;grid-template-rows:62vh auto}.wfeed{max-height:80vh}.wsub,.wstat{display:none}.wwin{margin-left:0}}
 @media (prefers-reduced-motion:reduce){.wcard{animation:none}}
+.wvh i{font-style:normal}
