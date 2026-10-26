@@ -21,7 +21,7 @@ function rgba(hex, a) { var n = parseInt(hex.slice(1), 16); return 'rgba(' + (n 
 
 root.innerHTML = '<header class="wbar"><div class="brand"><i class="logo"></i><b>WORLD GLOBE</b><span class="muted wsub">the most important news, pinned where it happens</span></div>' +
   '<div class="wclock" id="w-clock" title="Coordinated Universal Time"></div><span class="wstat muted" id="w-stat">loading…</span>' +
-  '<button class="wref" id="w-ref" title="Fetch the feeds again (each is cached 10 min on the server)">↻ Refresh</button></header>' +
+  '<button class="wref" id="w-ref" title="Load the latest news again">↻ Refresh</button></header>' +
   '<nav class="wfilters"><div class="wcats" id="w-cats"></div><div class="wwin" id="w-win">' + WINS.map(function (w, k) { return '<button data-w="' + k + '">' + w[0] + '</button>'; }).join('') + '</div></nav>' +
   '<main class="wbody"><section class="wglobe" id="w-box" aria-label="Globe"><div id="w-globe"></div><div class="wload" id="w-load">loading globe…</div>' +
   '<div class="wcard" id="w-card" hidden></div>' +
@@ -35,9 +35,15 @@ clock(); setInterval(clock, 15e3);
 /* ---------- data ---------- */
 function load(force) {
   if (loading) return; loading = true;
-  fetch('/api/world' + (force ? '?t=' + Date.now() : ''), {cache: 'no-store'}).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (d) {
+  get(feed, force).catch(function (e) { // no /api/world here (the GitHub Pages copy): read the news file the scheduled build wrote
+    if (feed !== '/api/world') throw e; feed = 'data/world.json'; return get(feed, force);
+  }).then(function (d) {
     raw = d.headlines || []; demo = !!d.demo; errors = d.errors || {}; srcs = d.sources || []; fetchedAt = d.fetchedAt || Date.now(); failed = ''; rebuild();
   }).catch(function (e) { failed = e.message; if (!raw) fetchedAt = Date.now(); paintStatus(); }).then(function () { loading = false; });
+}
+var feed = '/api/world'; // server.py; falls back to data/world.json for the static site
+function get(url, force) {
+  return fetch(url + (force ? '?t=' + Date.now() : ''), {cache: 'no-store'}).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
 }
 function rebuild() { if (!raw) return; all = G.stories(raw, Date.now(), {countryOf: countryOf}); render(); }
 function filtered() {
@@ -58,7 +64,7 @@ function paintCats() {
 }
 function paintStatus() {
   var bad = Object.keys(errors), h;
-  if (failed && !raw) h = 'could not reach /api/world (' + failed + '): is server.py running?';
+  if (failed && !raw) h = 'could not load the news (' + failed + ')';
   else if (raw && !raw.length) h = 'no headlines: ' + (bad.length ? 'every feed failed (' + bad.join(', ') + '); check your internet connection' : 'the feeds came back empty');
   else h = (demo ? 'DEMO headlines · ' : '') + 'updated ' + hhmm(fetchedAt) + ' · ' + raw.length + ' headlines from ' + (srcs.length - bad.length) + ' outlets' + (bad.length ? ' · failed: ' + bad.join(', ') : '');
   setText($('w-stat'), raw ? h : failed ? h : 'loading…');

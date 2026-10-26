@@ -15,6 +15,12 @@ python3 server.py --lan      # also reachable from other devices on your network
 
 You need only Python 3 and a modern browser: no installs, no build step and no API keys. The server is needed because browsers can't read news RSS feeds directly (CORS). It fetches the feeds and serves the page.
 
+## Online (GitHub Pages)
+
+`.github/workflows/pages.yml` publishes the site to GitHub Pages on every push and every 30 minutes. It runs the tests, fetches the feeds (`scripts/build_feed.py` writes `public/data/world.json`, the same JSON `/api/world` serves) and deploys `public/`. The page tries `/api/world` first and falls back to `data/world.json`, so the same files work with or without the server. If every feed fails, the run fails and the last good site stays up.
+
+One-time setup: **Settings → Pages → Source: GitHub Actions**. GitHub Pages on a private repo needs a paid GitHub plan; on a free plan the repo must be public. GitHub pauses scheduled workflows after 60 days with no commits; re-enable it from the Actions tab if that happens.
+
 ## How it works
 
 | Piece | File | What it does |
