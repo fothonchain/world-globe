@@ -68,7 +68,7 @@ def parse_rss(raw, source, limit=40):
             at = int(parsedate_to_datetime(it.findtext("pubDate")).timestamp() * 1000)
         except Exception:
             continue
-        out.append({"title": title[:200], "summary": _clean(it.findtext("description"))[:300], "url": link[:400], "source": source, "at": at})
+        out.append({"title": title[:200], "summary": _clean(it.findtext("description"))[:800], "url": link[:400], "source": source, "at": at})
     return out[:limit]
 
 A, YTNS, MEDIA = "{http://www.w3.org/2005/Atom}", "{http://www.youtube.com/xml/schemas/2015}", "{http://search.yahoo.com/mrss/}"
@@ -86,7 +86,7 @@ def parse_youtube(raw, source, limit=15):
             continue
         group = e.find(MEDIA + "group")
         desc = _clean(group.findtext(MEDIA + "description")) if group is not None else ""
-        out.append({"title": title[:200], "summary": desc[:300], "url": "https://www.youtube.com/watch?v=" + vid, "source": source, "at": at, "video": vid})
+        out.append({"title": title[:200], "summary": desc[:800], "url": "https://www.youtube.com/watch?v=" + vid, "source": source, "at": at, "video": vid})
     return out[:limit]
 
 def _fetch(name):
@@ -118,7 +118,7 @@ def world():
         for name in ALL:
             if _cache.get(name):
                 heads += _cache[name][1]
-    out["headlines"] = sorted(heads, key=lambda h: -h["at"])[:300]
+    out["headlines"] = sorted(heads, key=lambda h: -h["at"])[:800]
     return out
 
 class H(http.server.SimpleHTTPRequestHandler):
