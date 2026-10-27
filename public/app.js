@@ -6,7 +6,7 @@
 (function () {
 'use strict';
 var G = window.Geo, root = document.getElementById('app'); if (!G || !root) return;
-var COL = {war: '#ff3b5c', energy: '#ffb020', macro: '#3da5ff', ai: '#b26bff', markets: '#19ffb0', disaster: '#f5e663', politics: '#c9d4e6', other: '#7f93b5'};
+var COL = {war: '#ff3b5c', energy: '#ffb020', macro: '#3da5ff', ai: '#b26bff', markets: '#19ffb0', crypto: '#ff8a1f', disaster: '#f5e663', politics: '#c9d4e6', music: '#ff5fd2', other: '#7f93b5'};
 var WINS = [['24h', 24], ['3d', 72], ['7d', 168]], POLL = 5 * 60e3, MAXLIT = 120, MAXFEED = 60;
 function vidOf(s) { return s && s.video || null; } // any story with a matching news-channel video plays it under the card
 var cat = 'all', win = 0, sel = null, raw = null, all = [], shown = [], fetchedAt = 0, errors = {}, srcs = [], loading = false, failed = '', demo = false;

@@ -2,7 +2,7 @@
  * - locate(): pins a headline to a place by keyword matching against a gazetteer (not understanding). Precise spots (straits, cities,
  *   front lines) beat institutions (Fed, OPEC, Nvidia...), which beat countries / demonyms, which beat leaders (Trump -> Washington).
  *   conf: 'spot' (exact place), 'country' (pinned at a country's centre), or no place at all. A second place, if any, becomes an arc.
- * - category(): war, energy & shipping, macro, AI & tech, markets, disasters, politics (keyword counts, title counts double).
+ * - category(): war, energy & shipping, macro, AI & tech, markets, crypto, disasters, politics, music (keyword counts, title counts double).
  * - stories(): groups the same story told by several outlets, then ranks by category weight x number of outlets x recency.
  * - impact(): a rule-of-thumb market angle (why markets might care). Not advice, not a forecast. */
 (function (root) {
@@ -43,7 +43,7 @@ var GAZ = [
   ['PBOC', 39.91, 116.37, /\bpboc\b|people'?s bank of china/i, I], ['Shanghai', 31.23, 121.47, /shanghai/i, S], ['Hong Kong', 22.32, 114.17, /hong kong/i, S],
   ['Shenzhen', 22.54, 114.06, /shenzhen|huawei|byd\b/i, S], ['Hangzhou', 30.27, 120.15, /hangzhou|deepseek|alibaba/i, I], ['Xinjiang', 41.1, 85.2, /xinjiang|uyghur/i, S],
   ['Tibet', 29.65, 91.1, /tibet|lhasa/i, S], ['Tokyo', 35.68, 139.69, /tokyo|nikkei/i, S], ['Bank of Japan', 35.69, 139.77, /bank of japan|\bboj\b|ueda/i, I],
-  ['Seoul', 37.57, 126.98, /\bseoul\b|samsung|sk hynix/i, S], ['Pyongyang', 39.04, 125.76, /pyongyang|kim jong/i, S], ['Korean DMZ', 37.95, 126.68, /\bdmz\b|demilitari[sz]ed zone/i, S],
+  ['Seoul', 37.57, 126.98, /\bseoul\b|samsung|sk hynix|k-pop|kpop|\bhybe\b|\bbts\b|blackpink/i, S], ['Pyongyang', 39.04, 125.76, /pyongyang|kim jong/i, S], ['Korean DMZ', 37.95, 126.68, /\bdmz\b|demilitari[sz]ed zone/i, S],
   ['New Delhi', 28.61, 77.21, /new delhi|\bdelhi\b/i, S], ['Narendra Modi', 28.6, 77.2, /\bmodi\b/i, L], ['Mumbai', 19.08, 72.88, /mumbai|reserve bank of india|\brbi\b|sensex/i, S],
   ['Kashmir', 34.08, 74.8, /kashmir|line of control/i, S], ['Islamabad', 33.69, 73.05, /islamabad/i, S], ['Karachi', 24.86, 67.0, /karachi/i, S], ['Kabul', 34.53, 69.17, /kabul|taliban/i, S],
   ['Strait of Malacca', 2.5, 101.3, /malacca/i, S], ['Manila', 14.6, 120.98, /manila/i, S], ['Jakarta', -6.2, 106.85, /jakarta/i, S], ['Bangkok', 13.76, 100.5, /bangkok/i, S],
@@ -51,6 +51,8 @@ var GAZ = [
   ['Canberra', -35.28, 149.13, /canberra/i, S], ['Sydney', -33.87, 151.21, /sydney/i, S], ['Wellington', -41.29, 174.78, /wellington/i, S],
   // Americas
   ['Federal Reserve', 38.89, -77.05, /federal reserve|\bthe fed\b|\bfed\b(?=['’]?s? (?:rate|chair|cut|hike|hold|decision|official|governor|minutes))|\bfomc\b|powell/i, I],
+  ['SEC', 38.89, -77.03, /securities and exchange commission|\bthe sec\b|\bsec (?:chair|sues|approves|rejects|charges)/i, I], ['Coinbase, San Francisco', 37.79, -122.4, /coinbase/i, I],
+  ['Nashville', 36.16, -86.78, /nashville/i, S], ['Hollywood', 34.1, -118.33, /hollywood|grammys?|oscars?/i, S],
   ['US Treasury', 38.9, -77.03, /\btreasury (?:secretary|department)|bessent/i, I], ['Wall Street', 40.71, -74.01, /wall street|\bnyse\b|\bnasdaq\b|s&p 500|dow jones/i, I],
   ['White House', 38.9, -77.04, /white house|oval office|\btrump\b|\bvance\b/i, L], ['Washington', 38.9, -77.04, /washington|pentagon|capitol hill|\bcongress\b|\bsenate\b|state department/i, L],
   ['New York', 40.71, -74.0, /new york|united nations|\bun\b(?= (?:security council|general assembly|chief|says|report))|\bu\.n\./i, S],
@@ -74,7 +76,7 @@ var COUNTRIES = [
   ['Mexico', 23.6, -102.5, /\bmexic(?:o|an|ans)\b/i, 'Mexico'], ['Brazil', -10.3, -53.2, /\bbrazil(?:ian|ians)?\b/i, 'Brazil'], ['Argentina', -34.0, -64.0, /\bargentin(?:a|e|ian|ians)\b/i, 'Argentina'],
   ['Venezuela', 7.1, -66.2, /\bvenezuel(?:a|an|ans)\b/i, 'Venezuela'], ['Colombia', 4.1, -72.9, /\bcolombi(?:a|an|ans)\b/i, 'Colombia'], ['Chile', -33.4, -70.6, /\bchile(?:an|ans)?\b/i, 'Chile'],
   ['Peru', -9.2, -75.0, /\bperu(?:vian|vians)?\b/i, 'Peru'], ['Ecuador', -1.5, -78.4, /\becuador(?:ian|ians)?\b/i, 'Ecuador'], ['Bolivia', -16.7, -64.7, /\bbolivi(?:a|an|ans)\b/i, 'Bolivia'],
-  ['Cuba', 21.6, -79.0, /\bcuba(?:n|ns)?\b/i, 'Cuba'], ['Haiti', 19.0, -72.6, /\bhaiti(?:an|ans)?\b/i, 'Haiti'], ['Panama', 8.6, -80.1, /\bpanam(?:a|anian)\b/i, 'Panama'],
+  ['El Salvador', 13.8, -88.9, /\bel salvador\b|salvadoran|bukele/i, 'El Salvador'], ['Cuba', 21.6, -79.0, /\bcuba(?:n|ns)?\b/i, 'Cuba'], ['Haiti', 19.0, -72.6, /\bhaiti(?:an|ans)?\b/i, 'Haiti'], ['Panama', 8.6, -80.1, /\bpanam(?:a|anian)\b/i, 'Panama'],
   ['Greenland', 72.0, -40.0, /\bgreenland\b/i, 'Greenland'], ['United Kingdom', 52.8, -1.6, /\b(?:united kingdom|britain|british|england|english channel|scotland|wales)\b|\bUK\b/i, 'United Kingdom'],
   ['Ireland', 53.3, -7.7, /\bireland\b|\birish\b/i, 'Ireland'], ['France', 46.6, 2.4, /\bfran(?:ce|ch)\b/i, 'France'], ['Germany', 51.1, 10.4, /\bgerman(?:y|s)?\b/i, 'Germany'],
   ['Italy', 42.8, 12.6, /\ital(?:y|ian|ians)\b/i, 'Italy'], ['Spain', 40.2, -3.6, /\bspa(?:in|nish)\b/i, 'Spain'], ['Portugal', 39.6, -8.0, /\bportug(?:al|uese)\b/i, 'Portugal'],
@@ -171,9 +173,11 @@ var CATS = [ // order = tie break
   ['energy', 'Energy & shipping', 0.95, /\b(?:oil|crude|brent|wti|opec\+?|natural gas|lng|gas prices?|pipelines?|tankers?|refiner(?:y|ies)|barrels?|energy|shipping|freight|cargo|strait|hormuz|suez|red sea|chokepoint|fuel|petrol|gasoline|diesel|power grid|electricity)\b/i],
   ['macro', 'Macro & central banks', 0.9, /\b(?:federal reserve|the fed|fed|fomc|ecb|bank of england|bank of japan|boj|pboc|central banks?|interest rates?|rate (?:cut|hike|decision)s?|inflation|cpi|gdp|recession|jobs report|payrolls|unemployment|tariffs?|trade (?:war|deal|talks)|debt|deficit|bonds?|yields?|treasur(?:y|ies)|economy|economic|imf|world bank|currency|dollar|yen|yuan|euro|stimulus|budget)\b/i],
   ['ai', 'AI & tech', 0.85, /\b(?:ai|a\.i\.|artificial intelligence|openai|anthropic|chatgpt|claude|gemini|deepmind|nvidia|chips?|chipmakers?|semiconductors?|tsmc|asml|deepseek|llms?|data cent(?:er|re)s?|robots?|robotics|machine learning|superintelligence|agi|quantum)\b/i],
-  ['markets', 'Markets', 0.75, /\b(?:stocks?|shares|equities|wall street|nasdaq|s&p|dow|markets?|bitcoin|crypto|gold|silver|ipo|earnings|investors|sell-?off|rally|rallies|bull|bear|hedge funds?|valuation)\b/i],
+  ['markets', 'Markets', 0.75, /\b(?:stocks?|shares|equities|wall street|nasdaq|s&p|dow|markets?|gold|silver|ipo|earnings|investors|sell-?off|rally|rallies|bull|bear|hedge funds?|valuation)\b/i],
+  ['crypto', 'Crypto', 0.75, /\b(?:bitcoin|btc|ether|ethereum|crypto|cryptocurrenc(?:y|ies)|stablecoins?|tether|usdt|usdc|binance|coinbase|blockchain|defi|nfts?|solana|xrp|ripple|altcoins?|memecoins?|dogecoin|crypto exchanges?|satoshi|halving|web3)\b/i],
   ['disaster', 'Disasters & health', 0.8, /\b(?:earthquakes?|quake|hurricanes?|typhoons?|cyclones?|floods?|flooding|wildfires?|tsunami|volcano|eruption|storms?|drought|heatwave|outbreak|pandemic|epidemic|virus|cholera|ebola|famine|landslide)\b/i],
-  ['politics', 'Politics & diplomacy', 0.7, /\b(?:elections?|vote[sd]?|voters|president|prime minister|parliament|government|protests?|protesters|coup|sanctions?|summit|diplomat(?:s|ic)?|talks|treaty|minister|opposition|referendum|impeach(?:ment)?|cabinet|resigns?)\b/i]
+  ['politics', 'Politics & diplomacy', 0.7, /\b(?:elections?|vote[sd]?|voters|president|prime minister|parliament|government|protests?|protesters|coup|sanctions?|summit|diplomat(?:s|ic)?|talks|treaty|minister|opposition|referendum|impeach(?:ment)?|cabinet|resigns?)\b/i],
+  ['music', 'Music', 0.55, /\b(?:music|musicians?|albums?|songs?|singer|songwriter|rapper|rap|hip-hop|band|tour|tours|concerts?|festival|grammys?|billboard|chart-topping|spotify|record label|k-pop|kpop|orchestra|eurovision|setlist|pop star|lyrics|vinyl)\b/i]
 ];
 var CAT_INFO = {}; CATS.forEach(function (c) { CAT_INFO[c[0]] = {key: c[0], label: c[1], w: c[2]}; }); CAT_INFO.other = {key: 'other', label: 'Other', w: 0.4};
 function count(re, s) { var g = new RegExp(re.source, 'gi'), n = 0; while (g.exec(s)) n++; return n; }
@@ -242,7 +246,9 @@ function impact(s) {
     return 'Macro: rates, USD, risk appetite';
   }
   if (s.cat === 'ai') return /chip|semiconductor|nvidia|tsmc|asml|export/i.test(t) ? 'Chip stocks (NVDA, TSMC), Nasdaq sentiment' : 'AI / tech stocks, Nasdaq sentiment';
-  if (s.cat === 'markets') return /bitcoin|crypto/i.test(t) ? 'Crypto sentiment directly' : 'Market sentiment: risk on / off';
+  if (s.cat === 'markets') return 'Market sentiment: risk on / off';
+  if (s.cat === 'crypto') return /\bsec\b|regulat|lawsuit|\bban\b|crackdown|sanction/i.test(t) ? 'Regulation: crypto prices, exchange stocks (COIN)' : /etf|inflow|outflow/i.test(t) ? 'ETF flows: BTC / ETH demand' : /hack|exploit|stolen|drained/i.test(t) ? 'Hack: risk-off in crypto, the token hit hardest' : 'Crypto sentiment directly';
+  if (s.cat === 'music') return /spotify|universal music|warner music|sony music|streaming/i.test(t) ? 'Music / streaming stocks (SPOT, UMG, WMG)' : '';
   if (s.cat === 'disaster') return 'Local supply chains, insurance, commodities nearby';
   if (s.cat === 'politics') return /sanction/i.test(t) ? 'Sanctions: trade flows, commodities' : /election|vote/i.test(t) ? 'Policy uncertainty: local currency / stocks' : '';
   return '';

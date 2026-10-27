@@ -161,5 +161,29 @@
   "hoursAgo": 3.2,
   "summary": "Demo video row: the id is a placeholder, so the player shows 'unavailable'.",
   "video": "demo0000000"
+ },
+ {
+  "source": "CoinDesk",
+  "title": "Bitcoin climbs past $120,000 as ETF inflows surge",
+  "hoursAgo": 2.2,
+  "summary": ""
+ },
+ {
+  "source": "Decrypt",
+  "title": "El Salvador adds more bitcoin to its reserves",
+  "hoursAgo": 6,
+  "summary": ""
+ },
+ {
+  "source": "Billboard",
+  "title": "BTS announce reunion world tour starting in Seoul",
+  "hoursAgo": 4,
+  "summary": ""
+ },
+ {
+  "source": "Rolling Stone",
+  "title": "Grammys move ceremony date in Hollywood shake-up",
+  "hoursAgo": 9,
+  "summary": ""
  }
 ]

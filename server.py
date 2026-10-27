@@ -31,6 +31,13 @@ FEEDS = {  # name: (label, url)
     "france24": ("France 24", "https://www.france24.com/en/rss"),
     "cnbc": ("CNBC", "https://www.cnbc.com/id/100727362/device/rss/rss.html"),
     "techcrunch_ai": ("TechCrunch", "https://techcrunch.com/category/artificial-intelligence/feed/"),
+    "coindesk": ("CoinDesk", "https://www.coindesk.com/arc/outboundfeeds/rss/"),
+    "cointelegraph": ("Cointelegraph", "https://cointelegraph.com/rss"),
+    "decrypt": ("Decrypt", "https://decrypt.co/feed"),
+    "billboard": ("Billboard", "https://www.billboard.com/feed/"),
+    "rollingstone": ("Rolling Stone", "https://www.rollingstone.com/music/music-news/feed/"),
+    "pitchfork": ("Pitchfork", "https://pitchfork.com/feed/feed-news/rss"),
+    "nme": ("NME", "https://www.nme.com/news/music/feed"),
 }
 YT = "https://www.youtube.com/feeds/videos.xml?channel_id="
 VIDEOS = {  # news channels' public YouTube feeds (no key): videos become headlines with a video id, the page embeds them

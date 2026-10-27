@@ -35,6 +35,10 @@ t('category: keywords per topic, title counts double', () => {
   assert.equal(G.category('OpenAI unveils new model'), 'ai');
   assert.equal(G.category('Earthquake strikes off the coast of Japan'), 'disaster');
   assert.equal(G.category('A recipe for autumn soup'), 'other');
+  assert.equal(G.category('Bitcoin tops new high as ETF inflows surge'), 'crypto');
+  assert.equal(G.category('Stablecoin issuer Tether reports record profit'), 'crypto');
+  assert.equal(G.category('Taylor Swift announces new album and world tour'), 'music');
+  assert.equal(G.category('Wall Street rallies as tech earnings beat'), 'markets');
 });
 t('stories: the same story from several outlets is one story, ranked above single-outlet ones', () => {
   const h = [
@@ -63,5 +67,13 @@ t('stories: a news channel video joins the matching story; bad ids are ignored',
   const s = G.stories(h, NOW, {countryOf: cof}), kyiv = s.find(x => x.place && x.place.label === 'Kyiv');
   assert.equal(kyiv.items.length, 2); assert.equal(kyiv.video.id, 'abcDEF12345'); assert.equal(kyiv.video.source, 'Al Jazeera');
   assert.equal(s.find(x => x.cat === 'macro').video, null);
+});
+t('crypto and music: places and market angles', () => {
+  const sec = G.locate('SEC sues Coinbase over staking', '', cof); assert.equal(sec.label, 'SEC'); assert.equal(sec.to.label, 'Coinbase, San Francisco');
+  assert.equal(G.locate('BTS return to Seoul for reunion concert', '', cof).label, 'Seoul');
+  assert.equal(G.locate('El Salvador buys more bitcoin', '', cof).label, 'El Salvador');
+  const s = G.stories([{source: 'CoinDesk', title: 'SEC rejects new crypto ETF filing', at: NOW, url: 'https://a/1'},
+    {source: 'Billboard', title: 'Spotify raises prices as streaming growth slows for music labels', at: NOW, url: 'https://a/2'}], NOW);
+  assert(/Regulation/.test(s.find(x => x.cat === 'crypto').impact)); assert(/streaming stocks/.test(s.find(x => x.cat === 'music').impact));
 });
 console.log(n + ' tests passed');

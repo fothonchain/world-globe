@@ -1,6 +1,6 @@
 # World Globe
 
-A dark 3D globe with the most important world news (war, energy and shipping, central banks and the economy, AI and tech, markets, disasters, politics) pinned to where each story happens, with a ranked feed beside it. The aim is to stay informed at a glance.
+A dark 3D globe with the most important world news (war, energy and shipping, central banks and the economy, AI and tech, markets, crypto, disasters, politics, music) pinned to where each story happens, with a ranked feed beside it. The aim is to stay informed at a glance.
 
 ![World Globe](docs/screenshot.png)
 
@@ -25,14 +25,14 @@ One-time setup: **Settings → Pages → Source: GitHub Actions**. GitHub Pages 
 
 | Piece | File | What it does |
 |---|---|---|
-| Feeds | `server.py` | Fetches BBC World and Business, Al Jazeera, Guardian World, NPR World, France 24, CNBC World and TechCrunch AI RSS in parallel. Each feed is cached for 10 minutes, and a failed feed keeps its last good copy. `GET /api/world` returns the newest 300 headlines. |
+| Feeds | `server.py` | Fetches BBC World and Business, Al Jazeera, Guardian World, NPR World, France 24, CNBC World, TechCrunch AI, CoinDesk, Cointelegraph, Decrypt, Billboard, Rolling Stone, Pitchfork and NME RSS in parallel. Each feed is cached for 10 minutes, and a failed feed keeps its last good copy. `GET /api/world` returns the newest 300 headlines. |
 | Videos | `server.py` | The public YouTube feeds of Al Jazeera English, BBC News, DW News, France 24 English and Sky News (no key). Each video becomes a headline with a video id and joins the matching story by word overlap. |
 | Placing and ranking | `public/geo.js` | Pure logic that runs in the browser and in Node. See the rules below. |
 | Globe and feed | `public/app.js` | [globe.gl](https://github.com/vasturiano/globe.gl) (stored in the repo under `public/vendor/`), Natural Earth country outlines, the ranked feed, filters and story cards. |
 
 **Placing a story.** The headline and summary are matched against a hand-made list of places. A precise place (Strait of Hormuz, Kyiv, Gaza, Taiwan Strait) wins over an institution (Fed, ECB, OPEC, Nvidia HQ). An institution wins over a country, which is pinned at its centre and labelled "country". A country wins over a leader (Trump goes to the White House, Putin to the Kremlin). A second place, if one is named, becomes an arc. Stories with no known place stay in the feed as "not on the map".
 
-**Ranking.** Topic weight × (1 + 0.6 per extra outlet covering the same story, up to 5) × 0.5^(age / 12 h). The same story from several outlets is merged by word overlap.
+**Ranking.** Topic weight (war 1.0 down to music 0.55, so music and crypto rarely top the All view but lead their own filter) × (1 + 0.6 per extra outlet covering the same story, up to 5) × 0.5^(age / 12 h). The same story from several outlets is merged by word overlap.
 
 **Market angle.** A fixed rule of thumb per topic and region (for example "Oil supply risk: crude up, risk-off"). It is not advice and not a forecast.
 
