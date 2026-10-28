@@ -3,7 +3,10 @@
 Usage: python3 server.py [port]           -> http://127.0.0.1:8770/  (this machine only)
        python3 server.py [port] --lan     -> also reachable from your local network (read-only app, no secrets)
        python3 server.py [port] --demo    -> serve test/demo_headlines.json instead of the live feeds (offline work, screenshots)
-  GET /api/world -> {fetchedAt, headlines: [{title, summary, url, source, at, video?}], errors: {source: error}, sources: [names]}
+  GET /api/world -> {fetchedAt, headlines: [{title, summary, url, source, at, video?}], errors: {source: error}, sources: [names],
+                     calendar: [{title, country, impact, at, forecast, previous}], channels: {key: {name, id, latest?}}}
+                    calendar = this week's economic calendar (faireconomy / ForexFactory JSON, major currencies, High + Medium);
+                    channels = official / finance-TV YouTube channels for live streams, resolved from their @handles;
                     World RSS feeds + news channels' YouTube feeds (video = YouTube id), a fixed list (no user-supplied URLs),
                     fetched in parallel, each cached 10 minutes;
                     a feed that fails keeps serving its last good copy. Browsers cannot read these feeds directly (CORS).
@@ -97,7 +100,84 @@ def demo():
     with open(os.path.join(ROOT, "test", "demo_headlines.json")) as f:
         rows, now = json.load(f), time.time() * 1000
     heads = [{"title": r["title"], "summary": r.get("summary", ""), "url": "https://example.com/demo/%d" % i, "source": r["source"], "at": int(now - r["hoursAgo"] * 3600e3), **({"video": r["video"]} if r.get("video") else {})} for i, r in enumerate(rows)]
-    return {"fetchedAt": int(now), "errors": {}, "sources": sorted({r["source"] for r in rows}), "headlines": heads, "demo": True}
+    h = 3600e3  # demo calendar: one event live now, the rest around it (placeholder channel ids: the players show "unavailable")
+    cal = [{"title": t, "country": c, "impact": "High", "at": int(now + o * h), "forecast": f, "previous": p} for t, c, o, f, p in [
+        ("CPI m/m", "USD", -20, "0.3%", "0.4%"), ("Federal Funds Rate", "USD", -0.3, "4.25%", "4.50%"), ("FOMC Press Conference", "USD", 0.5, "", ""),
+        ("Main Refinancing Rate", "EUR", 22, "2.00%", "2.00%"), ("BOJ Policy Rate", "JPY", 40, "0.50%", "0.50%"), ("Non-Farm Employment Change", "USD", 70, "120K", "95K")]]
+    chans = {k: {"name": CHANNELS[k][0], "id": "UC" + k.ljust(22, "0")[:22], "latest": {"id": "demo0000000", "title": CHANNELS[k][0] + " (demo video)", "at": int(now - 5 * h)}} for k in CHANNELS}
+    return {"fetchedAt": int(now), "errors": {}, "sources": sorted({r["source"] for r in rows}), "headlines": heads, "demo": True, "calendar": cal, "channels": chans}
+
+CAL_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+MAJORS = {"USD", "EUR", "GBP", "JPY", "CNY", "CAD", "AUD", "NZD", "CHF"}
+def parse_calendar(raw):
+    out = []
+    for e in json.loads(raw):
+        if e.get("country") not in MAJORS or e.get("impact") not in ("High", "Medium"):
+            continue
+        try:
+            at = int(datetime.fromisoformat(e["date"]).timestamp() * 1000)
+        except Exception:
+            continue
+        out.append({"title": str(e.get("title", ""))[:120], "country": e["country"], "impact": e["impact"], "at": at,
+                    "forecast": str(e.get("forecast", ""))[:20], "previous": str(e.get("previous", ""))[:20]})
+    return out
+
+# live streams: the page embeds youtube.com/embed/live_stream?channel=<id>, which plays the channel's current live stream
+CHANNELS = {  # key: (name, @handles to try, best first)
+    "fed": ("Federal Reserve", ["@federalreserve"]),
+    "ecb": ("European Central Bank", ["@ecbeuro", "@europeancentralbank"]),
+    "boe": ("Bank of England", ["@bankofengland", "@BankofEnglandUK"]),
+    "cnbc": ("CNBC Television", ["@CNBCtelevision"]),
+    "bloomberg": ("Bloomberg Television", ["@markets", "@BloombergTelevision"]),
+    "yahoo": ("Yahoo Finance", ["@YahooFinance"]),
+}
+CHANNEL_ID = re.compile(r'<link rel="canonical" href="https://www\.youtube\.com/channel/(UC[A-Za-z0-9_-]{22})"|"externalId":"(UC[A-Za-z0-9_-]{22})"')
+def resolve_handle(handle):
+    m = CHANNEL_ID.search(_get("https://www.youtube.com/" + handle).decode("utf-8", "replace"))
+    if not m:
+        raise ValueError("no channel id on the page")
+    return m.group(1) or m.group(2)
+def _channel(key):
+    name, handles = CHANNELS[key]
+    last = None
+    for h in handles:
+        try:
+            cid = resolve_handle(h)
+            break
+        except Exception as e:
+            last = e
+    else:
+        raise last
+    ch = {"name": name, "id": cid}
+    try:
+        vids = parse_youtube(_get(YT + cid), name, 1)
+        if vids:
+            ch["latest"] = {"id": vids[0]["video"], "title": vids[0]["title"], "at": vids[0]["at"]}
+    except Exception:
+        pass
+    return ch
+
+def extras(out):
+    """calendar + channels into out (cached: calendar 30 min, channels 3 h); failures go to out['errors']"""
+    now, jobs = time.time(), {}
+    with _lock:
+        cal, chans = _cache.get("calendar"), {k: _cache.get("ch_" + k) for k in CHANNELS}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1 + len(CHANNELS)) as ex:
+        if not cal or now - cal[0] > 1800:
+            jobs["calendar"] = ex.submit(lambda: parse_calendar(_get(CAL_URL)))
+        for k, hit in chans.items():
+            if not hit or now - hit[0] > 3 * 3600:
+                jobs["ch_" + k] = ex.submit(_channel, k)
+        for name, fut in jobs.items():
+            try:
+                val = fut.result()
+                with _lock:
+                    _cache[name] = (now, val)
+            except Exception as e:
+                out["errors"]["Calendar" if name == "calendar" else CHANNELS[name[3:]][0] + " live"] = type(e).__name__
+    with _lock:
+        out["calendar"] = (_cache.get("calendar") or (0, []))[1]
+        out["channels"] = {k: _cache["ch_" + k][1] for k in CHANNELS if _cache.get("ch_" + k)}
 
 def world():
     if DEMO:
@@ -119,6 +199,7 @@ def world():
             if _cache.get(name):
                 heads += _cache[name][1]
     out["headlines"] = sorted(heads, key=lambda h: -h["at"])[:800]
+    extras(out)
     return out
 
 class H(http.server.SimpleHTTPRequestHandler):

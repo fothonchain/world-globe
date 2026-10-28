@@ -5,13 +5,14 @@
  * when the lit countries or the selected story change, and the globe stops rendering while the tab is hidden. */
 (function () {
 'use strict';
-var G = window.Geo, root = document.getElementById('app'); if (!G || !root) return;
+var G = window.Geo, C = window.Cal, root = document.getElementById('app'); if (!G || !C || !root) return;
 var COL = {war: '#ff3b5c', energy: '#ffb020', macro: '#3da5ff', ai: '#b26bff', markets: '#19ffb0', crypto: '#ff8a1f', disaster: '#f5e663', politics: '#c9d4e6', music: '#ff5fd2', other: '#7f93b5'};
 var WINS = [['24h', 24], ['3d', 72], ['7d', 168]], POLL = 5 * 60e3, MAXLIT = 120, MAXFEED = 60;
 function vidOf(s) { return s && s.video || null; } // any story with a matching news-channel video plays it under the card
 var cat = 'all', win = 0, sel = null, raw = null, all = [], shown = [], fetchedAt = 0, errors = {}, srcs = [], loading = false, failed = '', demo = false;
+var tab = 'news', calRaw = [], channels = {}, events = [], impactMin = 'High', evStream = {}; // Calendar tab
 var glb = null, countries = null, countryOf = null, booting = false, spin = true, hoverT = 0;
-try { var c0 = localStorage.getItem('wg_cat'); if (c0 && (c0 === 'all' || COL[c0])) cat = c0; var w0 = +localStorage.getItem('wg_win'); if (w0 >= 0 && w0 < WINS.length) win = w0; } catch (e) {}
+try { var c0 = localStorage.getItem('wg_cat'); if (c0 && (c0 === 'all' || COL[c0])) cat = c0; var w0 = +localStorage.getItem('wg_win'); if (w0 >= 0 && w0 < WINS.length) win = w0; if (localStorage.getItem('wg_tab') === 'cal') tab = 'cal'; if (localStorage.getItem('wg_impact') === 'Medium') impactMin = 'Medium'; } catch (e) {}
 function $(id) { return document.getElementById(id); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]; }); }
 function setText(el, t) { t = String(t); if (el && el.textContent !== t) el.textContent = t; }
@@ -28,8 +29,12 @@ root.innerHTML = '<header class="wbar"><div class="brand"><i class="logo"></i><b
   '<div class="wleft"><div class="wcard" id="w-card" hidden></div><div class="wvid" id="w-vid" hidden></div></div>' +
   '<div class="wlegend"><span><i class="lc"></i>lit country = in the news</span><span><i class="lp"></i>select a story to pin it</span><span><i class="la"></i>arc = a second place the story names</span></div>' +
   '<button class="wspin on" id="w-spin" title="Rotate the globe slowly">Auto-rotate</button></section>' +
-  '<aside class="wfeed"><div class="wfh"><span>TOP STORIES</span><span class="muted" id="w-n"></span></div><div class="wlist" id="w-list"><div class="wempty">Loading the news…</div></div>' +
-  '<div class="wfoot muted">Places, groups and ranks headlines by keyword rules, not by reading them: a pin can be wrong. Ranking = topic weight × number of outlets × recency. Market angles are rules of thumb, not advice.</div></aside></main>';
+  '<aside class="wfeed"><div class="wfh"><div class="wtabs" id="w-tabs"><button data-t="news">TOP STORIES</button><button data-t="cal">CALENDAR <em id="w-livec"></em></button></div><span class="muted" id="w-n"></span></div>' +
+  '<div class="wcalbar" id="w-calbar"><span class="muted">Impact</span><button data-i="High">High</button><button data-i="Medium">High + medium</button><span class="muted wtz" id="w-tz"></span></div>' +
+  '<div class="wlist" id="w-list"><div class="wempty">Loading the news…</div></div><div class="wlist" id="w-cal" hidden></div>' +
+  '<div class="wfoot muted" id="w-foot"></div></aside></main>';
+var FOOT = {news: 'Places, groups and ranks headlines by keyword rules, not by reading them: a pin can be wrong. Ranking = topic weight × number of outlets × recency. Market angles are rules of thumb, not advice.',
+  cal: 'This week: ForexFactory economic calendar (major currencies). Later FOMC and US CPI dates: the Fed / BLS schedules. Times in your time zone. Live video: the official channel when it streams, else finance TV live.'};
 function clock() { var d = new Date(); setText($('w-clock'), d.toISOString().slice(11, 16) + ' UTC'); }
 clock(); setInterval(clock, 15e3);
 
@@ -39,6 +44,7 @@ function load(force) {
   get(feed, force).catch(function (e) { // no /api/world here (the GitHub Pages copy): read the news file the scheduled build wrote
     if (feed !== '/api/world') throw e; feed = 'data/world.json'; return get(feed, force);
   }).then(function (d) {
+    calRaw = d.calendar || []; channels = d.channels || {};
     raw = d.headlines || []; demo = !!d.demo; errors = d.errors || {}; srcs = d.sources || []; fetchedAt = d.fetchedAt || Date.now(); failed = ''; rebuild();
   }).catch(function (e) { failed = e.message; if (!raw) fetchedAt = Date.now(); paintStatus(); }).then(function () { loading = false; });
 }
@@ -46,7 +52,10 @@ var feed = '/api/world'; // server.py; falls back to data/world.json for the sta
 function get(url, force) {
   return fetch(url + (force ? '?t=' + Date.now() : ''), {cache: 'no-store'}).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
 }
-function rebuild() { if (!raw) return; all = G.stories(raw, Date.now(), {countryOf: countryOf}); render(); }
+function rebuild() { if (!raw) return; all = G.stories(raw, Date.now(), {countryOf: countryOf}); rebuildEvents(); render(); }
+function rebuildEvents() { // calendar events look like stories to the globe (place, cat, title) so pins, rings and fly-to work unchanged
+  events = C.build(calRaw, Date.now(), {minImpact: impactMin}).map(function (e) { e.isEvent = true; e.cat = 'macro'; e.sources = []; e.items = []; e.summary = ''; return e; });
+}
 function filtered() {
   var since = Date.now() - WINS[win][1] * 3600e3;
   return all.filter(function (s) { return s.at >= since && (cat === 'all' || s.cat === cat); });
@@ -81,16 +90,53 @@ function itemHTML(s, i) {
     '<div class="wi2">' + placeHTML(s) + '<span class="wsrc" title="' + esc(s.sources.join(', ')) + '">' + s.sources.length + ' outlet' + (s.sources.length === 1 ? '' : 's') + '</span></div>' +
     (s.impact ? '<div class="wimp">▸ ' + esc(s.impact) + '</div>' : '') + '</div>';
 }
+function paintTab() {
+  var cal = tab === 'cal';
+  Array.prototype.forEach.call($('w-tabs').children, function (b) { b.classList.toggle('on', b.getAttribute('data-t') === tab); });
+  $('w-list').hidden = cal; $('w-cal').hidden = !cal; $('w-calbar').hidden = !cal; document.body.classList.toggle('tab-cal', cal);
+  setText($('w-foot'), FOOT[tab]);
+  Array.prototype.forEach.call($('w-calbar').querySelectorAll('button'), function (b) { b.classList.toggle('on', b.getAttribute('data-i') === impactMin); });
+}
+function dayLabel(t) {
+  var d = new Date(t), today = new Date(), k = function (x) { return x.getFullYear() + '-' + x.getMonth() + '-' + x.getDate(); }, tm = new Date(today.getTime() + 864e5);
+  return k(d) === k(today) ? 'Today' : k(d) === k(tm) ? 'Tomorrow' : d.toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'});
+}
+function stLabel(e, now) {
+  var st = C.status(e, now);
+  return st === 'live' ? (e.at > now ? 'LIVE SOON · ' + C.countdown(e.at - now) : 'LIVE') : st === 'done' ? 'done' : 'in ' + C.countdown(e.at - now);
+}
+function evHTML(e, now) {
+  var st = C.status(e, now);
+  return '<div class="witem wev ' + st + (e.id === sel ? ' on' : '') + '" data-id="' + e.id + '" style="--c:' + (st === 'live' ? '#ff3b5c' : COL.macro) + '">' +
+    '<div class="wi1"><span class="wtime">' + hhmm(e.at) + '</span><span class="wcur">' + esc(e.country) + '</span><span class="wcat">' + esc(e.kindLabel) + '</span>' +
+    (e.impact === 'Medium' ? '<span class="wmed" title="Medium impact">med</span>' : '') + '<span class="wst ' + st + '">' + stLabel(e, now) + '</span></div>' +
+    '<div class="wtitle">' + esc(e.title) + (e.src === 'schedule' ? ' <em class="muted" title="From the published schedule; the exact release appears in the weekly calendar that week">· scheduled</em>' : '') + '</div>' +
+    ((e.forecast || e.previous) ? '<div class="wi2 wfp">' + (e.forecast ? '<span>forecast <b>' + esc(e.forecast) + '</b></span>' : '') + (e.previous ? '<span>previous <b>' + esc(e.previous) + '</b></span>' : '') + '</div>' : '') + '</div>';
+}
+function paintCal() {
+  var now = Date.now(), h = '', day = '', nLive = 0;
+  events.forEach(function (e) {
+    if (C.status(e, now) === 'live') nLive++;
+    var d = dayLabel(e.at); if (d !== day) { day = d; h += '<div class="wday">' + esc(d) + '</div>'; }
+    h += evHTML(e, now);
+  });
+  setHTML($('w-cal'), h || '<div class="wempty">' + (raw ? 'No ' + (impactMin === 'High' ? 'high-impact ' : '') + 'events in the calendar right now.' : 'Loading the calendar…') + '</div>');
+  setText($('w-livec'), nLive ? '● ' + nLive + ' LIVE' : '');
+  setText($('w-tz'), Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+  if (tab === 'cal') setText($('w-n'), events.length + ' event' + (events.length === 1 ? '' : 's'));
+}
 function render() {
-  shown = filtered(); paintCats(); paintStatus();
-  setText($('w-n'), shown.length + ' stor' + (shown.length === 1 ? 'y' : 'ies') + ' · ' + shown.filter(function (s) { return s.place; }).length + ' on the map');
+  shown = filtered(); paintCats(); paintStatus(); paintTab(); paintCal();
+  if (tab === 'news') setText($('w-n'), shown.length + ' stor' + (shown.length === 1 ? 'y' : 'ies') + ' · ' + shown.filter(function (s) { return s.place; }).length + ' on the map');
   setHTML($('w-list'), shown.length ? shown.slice(0, MAXFEED).map(itemHTML).join('') : '<div class="wempty">' + (raw ? 'No stories in this filter and time window.' : 'Loading the news…') + '</div>');
-  if (sel && !shown.some(function (s) { return s.id === sel; })) close();
+  if (sel && !shown.some(function (s) { return s.id === sel; }) && !events.some(function (e) { return e.id === sel; })) close();
   paintGlobe(); paintCard();
 }
-function byId(id) { for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; return null; }
+function byId(id) { var i; for (i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; for (i = 0; i < events.length; i++) if (events[i].id === id) return events[i]; return null; }
 function paintCard() {
   var s = sel && byId(sel), el = $('w-card');
+  if (s && s.isEvent) { paintVideo(null); return paintEvent(s, el); }
+  paintStream(null);
   paintVideo(vidOf(s)); if (s && s.video) { $('w-vid').style.setProperty('--c', COL[s.cat]); setText($('w-vago'), ago(s.video.at) + ' ago'); }
   if (!s) { el.hidden = true; return; }
   el.hidden = false; el.style.setProperty('--c', COL[s.cat]);
@@ -105,19 +151,50 @@ function paintCard() {
     (s.impact ? '<div class="wcw imp"><span>MARKET ANGLE</span>' + esc(s.impact) + ' <em class="muted">(rule of thumb)</em></div>' : '') +
     '<ul class="wcl">' + links + '</ul>');
 }
+/* ---------- calendar event card + live player ---------- */
+function paintEvent(e, el) {
+  var now = Date.now(), st = C.status(e, now);
+  el.hidden = false; el.style.setProperty('--c', st === 'live' ? '#ff3b5c' : COL.macro);
+  var when = new Date(e.at).toLocaleString('en-US', {weekday: 'long', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false});
+  setHTML(el, '<div class="wch"><span class="wcat">' + (e.central ? 'Central bank' : 'Data release') + ' · ' + esc(e.country) + '</span><span class="wst ' + st + '">' + stLabel(e, now) + '</span><button class="x" id="w-x" aria-label="Close">×</button></div>' +
+    '<div class="wct">' + esc(e.title) + '</div><div class="wcs">' + esc(e.kindLabel) + ' · ' + esc(e.bank) + (e.impact === 'High' ? ' · high impact' : ' · medium impact') + '</div>' +
+    '<div class="wcw"><span>WHEN</span>' + esc(when) + ' <span class="muted">(your time)</span>' + (e.src === 'schedule' ? '<br><span class="muted">from the published schedule; the exact time shows up in the weekly calendar that week</span>' : '') + '</div>' +
+    ((e.forecast || e.previous) ? '<div class="wcw"><span>FORECAST / PREVIOUS</span>' + esc(e.forecast || '—') + ' / ' + esc(e.previous || '—') + '</div>' : '') +
+    '<div class="wcw imp"><span>WHY IT MATTERS</span>' + esc(e.why) + ' <em class="muted">(rule of thumb)</em></div>');
+  paintStream(e);
+}
+// the stream panel: buttons for each live channel / latest official video; the iframe only changes when the chosen stream changes
+var OFFICIAL = {fed: 1, ecb: 1, boe: 1};
+function paintStream(e) {
+  var el = $('w-vid');
+  if (!e) { if (el._ev) { el._ev = null; el.hidden = true; setHTML(el, ''); } return; }
+  var p = C.pickStream(e, channels, Date.now()), official = p.latest.filter(function (k) { return OFFICIAL[k]; }),
+    opts = p.live.map(function (k) { return 'live:' + k; }).concat(official.map(function (k) { return 'latest:' + k; })); // a TV channel's latest upload is rarely about the event
+  el._ev = e.id; el.hidden = false; el.style.setProperty('--c', p.status === 'live' ? '#ff3b5c' : COL.macro);
+  if (!opts.length) { setHTML(el, '<div class="wvh"><span>NO LIVE VIDEO</span></div><div class="wvnote muted">No live stream channel is known for this event.</div>'); return; }
+  var pick = evStream[e.id] && opts.indexOf(evStream[e.id]) >= 0 ? evStream[e.id] : (p.status === 'live' || p.status === 'soon' || !official.length ? opts[0] : 'latest:' + official[0]);
+  var parts = pick.split(':'), ch = channels[parts[1]], isLive = parts[0] === 'live';
+  var src = isLive ? 'https://www.youtube.com/embed/live_stream?channel=' + ch.id + '&amp;autoplay=1&amp;mute=1&amp;playsinline=1'
+    : 'https://www.youtube-nocookie.com/embed/' + ch.latest.id + '?autoplay=' + (p.status === 'done' ? 1 : 0) + '&amp;mute=1&amp;playsinline=1&amp;rel=0';
+  var open = isLive ? 'https://www.youtube.com/channel/' + ch.id + '/live' : 'https://www.youtube.com/watch?v=' + ch.latest.id;
+  setHTML(el, '<div class="wvh"><span>' + (isLive ? '● LIVE · ' : '▶ LATEST · ') + esc(ch.name) + '</span><a href="' + open + '" target="_blank" rel="noopener noreferrer">Open on YouTube</a></div>' +
+    '<div class="wvbtns">' + opts.map(function (o) { var q = o.split(':'), c = channels[q[1]]; return '<button data-s="' + o + '" class="' + (o === pick ? 'on' : '') + '">' + (q[0] === 'live' ? '● ' + esc(c.name) + ' live' : '▶ latest from ' + esc(c.name)) + '</button>'; }).join('') + '</div>' +
+    '<div class="wframe"><iframe src="' + src + '" title="' + esc(ch.name) + '" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' +
+    (isLive ? '<div class="wvnote muted">Plays the channel\'s live stream when it is on air; if it shows offline, try another button or the latest video.</div>' : ''));
+}
 // the player only depends on the video id, so the 60 s refresh of the card never restarts it; closing the card removes it (stops playback)
 function paintVideo(v) {
-  var el = $('w-vid'); el.hidden = !v;
+  var el = $('w-vid'); if (el._ev) return; el.hidden = !v;
   setHTML(el, v ? '<div class="wvh"><span>▶ VIDEO · ' + esc(v.source) + ' · <i id="w-vago"></i></span><a href="https://www.youtube.com/watch?v=' + v.id + '" target="_blank" rel="noopener noreferrer">Open on YouTube</a></div>' +
     '<div class="wframe"><iframe src="https://www.youtube-nocookie.com/embed/' + v.id + '?autoplay=1&amp;mute=1&amp;playsinline=1&amp;rel=0" title="' + esc(v.title) + '" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' : '');
 }
 function select(id, fly) {
   sel = id; var s = byId(id);
-  Array.prototype.forEach.call($('w-list').querySelectorAll('.witem'), function (el) { el.classList.toggle('on', el.getAttribute('data-id') === id); });
+  Array.prototype.forEach.call(root.querySelectorAll('.witem'), function (el) { el.classList.toggle('on', el.getAttribute('data-id') === id); });
   paintCard(); if (glb) { paintSel(); if (s && s.place && fly !== false) flyTo(s, 1.5); setSpin(false); }
-  var it = $('w-list').querySelector('.witem[data-id="' + id + '"]'); if (it && fly === false) it.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+  var it = root.querySelector('.witem[data-id="' + id + '"]'); if (it && fly === false) it.scrollIntoView({block: 'nearest', behavior: 'smooth'});
 }
-function close() { sel = null; $('w-card').hidden = true; paintVideo(null); Array.prototype.forEach.call($('w-list').querySelectorAll('.witem.on'), function (el) { el.classList.remove('on'); }); if (glb) paintSel(); }
+function close() { sel = null; $('w-card').hidden = true; paintStream(null); paintVideo(null); Array.prototype.forEach.call(root.querySelectorAll('.witem.on'), function (el) { el.classList.remove('on'); }); if (glb) paintSel(); }
 
 $('w-cats').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; cat = b.getAttribute('data-c'); try { localStorage.setItem('wg_cat', cat); } catch (x) {} render(); });
 $('w-win').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; win = +b.getAttribute('data-w'); try { localStorage.setItem('wg_win', win); } catch (x) {} render(); });
@@ -129,6 +206,13 @@ $('w-list').addEventListener('mouseover', function (e) {
 });
 $('w-list').addEventListener('mouseleave', function () { clearTimeout(hoverT); });
 $('w-card').addEventListener('click', function (e) { if (e.target.closest('#w-x')) close(); });
+$('w-tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; tab = b.getAttribute('data-t'); try { localStorage.setItem('wg_tab', tab); } catch (x) {} render(); });
+$('w-calbar').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; impactMin = b.getAttribute('data-i'); try { localStorage.setItem('wg_impact', impactMin); } catch (x) {} rebuildEvents(); render(); });
+$('w-cal').addEventListener('click', function (e) { var it = e.target.closest('.witem'); if (it) select(it.getAttribute('data-id')); });
+$('w-vid').addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-s]'), ev = sel && byId(sel); if (!b || !ev || !ev.isEvent) return;
+  evStream[ev.id] = b.getAttribute('data-s'); paintStream(ev);
+});
 $('w-spin').addEventListener('click', function () { setSpin(!spin); });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && sel) close(); });
 
@@ -150,7 +234,8 @@ function boot() {
         .polygonsTransitionDuration(400).polygonLabel(function (f) { return '<div class="wtip"><b>' + esc(f.properties.name) + '</b></div>'; })
         .pointLat(function (s) { return s.place.lat; }).pointLng(function (s) { return s.place.lon; }).pointRadius(0.035).pointResolution(16).pointColor(function (s) { return COL[s.cat]; })
         .pointAltitude(0.09).pointsMerge(false).pointsTransitionDuration(400) // a thin needle; the ring and label mark the spot
-        .pointLabel(function (s) { return '<div class="wtip" style="--c:' + COL[s.cat] + '"><span>' + esc(G.CAT_INFO[s.cat].label) + ' · ' + esc(s.place.label) + '</span><b>' + esc(s.title) + '</b><em>' + ago(s.at) + ' ago · ' + s.sources.length + ' outlet' + (s.sources.length === 1 ? '' : 's') + '</em></div>'; })
+        .pointLabel(function (s) { if (s.isEvent) return '<div class="wtip"><span>' + esc(s.kindLabel) + ' · ' + esc(s.place.label) + '</span><b>' + esc(s.title) + '</b><em>' + stLabel(s, Date.now()) + '</em></div>';
+          return '<div class="wtip" style="--c:' + COL[s.cat] + '"><span>' + esc(G.CAT_INFO[s.cat].label) + ' · ' + esc(s.place.label) + '</span><b>' + esc(s.title) + '</b><em>' + ago(s.at) + ' ago · ' + s.sources.length + ' outlet' + (s.sources.length === 1 ? '' : 's') + '</em></div>'; })
         .onPointClick(function (s) { select(s.id, false); })
         .ringLat(function (s) { return s.place.lat; }).ringLng(function (s) { return s.place.lon; }).ringAltitude(0.014).ringMaxRadius(2.6).ringPropagationSpeed(0.9).ringRepeatPeriod(1800).ringResolution(96)
         .ringColor(function (s) { var c = COL[s.cat]; return function (t) { return rgba(c, 1 - t); }; })

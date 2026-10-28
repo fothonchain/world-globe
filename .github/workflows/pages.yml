@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Tests
-        run: node test/geo.test.js && python3 test/server_test.py
+        run: node test/geo.test.js && node test/cal.test.js && python3 test/server_test.py
       - name: Fetch the news
         run: python3 scripts/build_feed.py
       - uses: actions/upload-pages-artifact@v3

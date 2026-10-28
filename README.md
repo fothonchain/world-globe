@@ -38,6 +38,14 @@ One-time setup: **Settings → Pages → Source: GitHub Actions**. GitHub Pages 
 
 **Limits.** This is keyword matching, not understanding. A place that is only mentioned in passing can get the pin, and the same story worded very differently can show up twice. The page says this too.
 
+## Calendar tab
+
+The **Calendar** tab (next to Top stories) lists the week's high-impact meetings and data releases for the major currencies: rate decisions, press conferences, central bankers' speeches, CPI, PCE, jobs, GDP and so on. Times are in your time zone, with a countdown and a **LIVE** badge during the event. "High + medium" shows more events.
+
+- **Sources:** this week's events come from the ForexFactory weekly calendar (faireconomy JSON). That feed has no next week, so later FOMC decisions and US CPI releases come from the Fed / BLS schedules in `public/cal.js` (marked "scheduled"; extend it yearly).
+- **On the globe:** clicking an event pins it at its central bank (Fed in Washington, ECB in Frankfurt, BoE in London, BoJ in Tokyo, ...).
+- **Live video:** under the card, a player for the event's live stream: the official channel first for central-bank events (Federal Reserve, ECB, Bank of England), then finance TV (CNBC, Bloomberg, Yahoo Finance). It uses YouTube's live embed, which plays whatever the channel is streaming now; when the channel isn't live it shows offline, so switch channels or watch the official channel's latest upload (for example the last press conference). Channel ids are resolved from their @handles by the server.
+
 ## Using it
 
 - Topic buttons and the 24h / 3d / 7d window filter both the feed and the globe. Both choices are remembered.
@@ -50,6 +58,7 @@ One-time setup: **Settings → Pages → Source: GitHub Actions**. GitHub Pages 
 
 ```bash
 node test/geo.test.js        # placing, country lookup, categories, grouping, recency
+node test/cal.test.js        # calendar: schedule, kinds, merge, status / live window, streams
 python3 test/server_test.py  # RSS parsing + demo feed (no network)
 ```
 

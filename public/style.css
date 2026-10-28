@@ -80,3 +80,28 @@ button{font:inherit}
 @media (max-width:1000px){body{overflow:auto}#app{height:auto;min-height:100%}.wbody{grid-template-columns:1fr;grid-template-rows:62vh auto}.wfeed{max-height:80vh}.wsub,.wstat{display:none}.wwin{margin-left:0}}
 @media (prefers-reduced-motion:reduce){.wcard{animation:none}}
 .wvh i{font-style:normal}
+/* right panel tabs: Top stories | Calendar */
+.wtabs{display:flex;gap:4px}.wtabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--mut);font-size:11px;letter-spacing:2px;font-weight:700;padding:2px 2px 4px;margin-right:10px;cursor:pointer}
+.wtabs button:hover{color:var(--fg)}.wtabs button.on{color:var(--glow);border-bottom-color:var(--glow)}
+.wtabs em{font-style:normal;color:#ff3b5c;letter-spacing:.5px;margin-left:4px;animation:blink 1.6s ease-in-out infinite}
+@keyframes blink{50%{opacity:.35}}
+body.tab-cal .wcats,body.tab-cal .wwin{visibility:hidden}
+/* calendar */
+.wcalbar{display:flex;align-items:center;gap:5px;padding:0 12px 6px;font-size:11px}.wcalbar[hidden]{display:none}
+.wcalbar button{background:var(--panel2);border:1px solid var(--line2);color:var(--mut);font-size:10.5px;padding:2px 8px;border-radius:7px;cursor:pointer}
+.wcalbar button.on{color:var(--fg);border-color:var(--glow);background:rgba(0,229,255,.14)}.wtz{margin-left:auto;font-size:10px}
+.wlist[hidden]{display:none}
+.wday{font-size:10px;letter-spacing:2px;color:var(--mut);text-transform:uppercase;padding:6px 2px 0}
+.wev .wtime{font-variant-numeric:tabular-nums;color:var(--fg);font-weight:600;font-size:11.5px}
+.wcur{font-size:9.5px;border:1px solid var(--line2);border-radius:4px;padding:0 4px;color:var(--fg);letter-spacing:.5px}
+.wmed{font-size:9.5px;color:var(--warn)}
+.wst{margin-left:auto;font-size:10px;color:var(--mut);white-space:nowrap}.wst.soon{color:var(--warn)}.wst.live{color:#ff3b5c;font-weight:700;animation:blink 1.6s ease-in-out infinite}
+.wev.done{opacity:.5}.wev.live{background:rgba(255,59,92,.06)}
+.wfp{gap:12px;color:var(--mut)}.wfp b{color:var(--fg);font-weight:600}
+.wch .wst{margin-left:6px}
+/* live player buttons */
+.wvbtns{display:flex;gap:4px;flex-wrap:wrap;padding:0 10px 6px}
+.wvbtns button{background:var(--panel2);border:1px solid var(--line2);color:var(--mut);font-size:10.5px;padding:2px 8px;border-radius:7px;cursor:pointer}
+.wvbtns button.on{color:var(--fg);border-color:var(--c,#00e5ff)}.wvbtns button:hover{color:var(--fg)}
+.wvnote{font-size:10px;padding:5px 10px 7px}
+@media (prefers-reduced-motion:reduce){.wtabs em,.wst.live{animation:none}}

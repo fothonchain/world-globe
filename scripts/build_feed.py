@@ -14,3 +14,4 @@ os.makedirs(os.path.join(ROOT, "public", "data"), exist_ok=True)
 with open(os.path.join(ROOT, "public", "data", "world.json"), "w") as f:
     json.dump(d, f, separators=(",", ":"))
 print(f"{len(d['headlines'])} headlines, failed feeds: {d['errors'] or 'none'}")
+print(f"{len(d.get('calendar', []))} calendar events; channels: " + (", ".join(f"{k}={v['id']}" + (" (latest ok)" if v.get("latest") else "") for k, v in d.get("channels", {}).items()) or "none"))

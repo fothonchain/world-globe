@@ -23,3 +23,13 @@ v = server.parse_youtube(yt, "Al Jazeera")
 assert len(v) == 1 and v[0]["video"] == "abcDEF12345" and v[0]["title"] == "Russia strikes Kyiv overnight" and v[0]["summary"] == "Footage from the city." and v[0]["at"] == 1792987200000, v
 assert v[0]["url"] == "https://www.youtube.com/watch?v=abcDEF12345"
 print("ok - server: youtube feed parsing")
+
+cal = server.parse_calendar(b'''[{"title":"Federal Funds Rate","country":"USD","date":"2026-10-28T14:00:00-04:00","impact":"High","forecast":"4.25%","previous":"4.50%"},
+ {"title":"Bank Holiday","country":"USD","date":"2026-10-28T00:00:00-04:00","impact":"Holiday"},
+ {"title":"Something","country":"BRL","date":"2026-10-28T00:00:00-04:00","impact":"High"}]''')
+assert cal == [{"title": "Federal Funds Rate", "country": "USD", "impact": "High", "at": 1793210400000, "forecast": "4.25%", "previous": "4.50%"}], cal
+page = '<html><link rel="canonical" href="https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv"></html>'
+assert server.CHANNEL_ID.search(page).group(1) == "UCabcdefghijklmnopqrstuv"
+d = server.world()
+assert d["calendar"] and set(d["channels"]) == set(server.CHANNELS)
+print("ok - server: calendar parsing, channel id, demo calendar")
